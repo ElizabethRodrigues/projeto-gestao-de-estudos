@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gestão de Estudos</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topo">
+    <div class="marca">📚 Gestão de Estudos</div>
+    <nav id="menu">
+      <button data-aba="painel" class="ativo">Acompanhamento</button>
+      <button data-aba="estudar">Estudar</button>
+      <button data-aba="planejamentos">Planejamentos</button>
+      <button data-aba="metas">Metas</button>
+      <button data-aba="cursos">Cursos</button>
+      <button data-aba="disciplinas">Disciplinas</button>
+    </nav>
+  </header>
+
+  <div id="aviso" class="aviso oculto" role="status"></div>
+
+  <main>
+    <!-- ===================== ACOMPANHAMENTO ===================== -->
+    <section id="aba-painel" class="aba">
+      <h1>Acompanhamento</h1>
+      <p class="sub">Compare o que foi planejado com o que foi estudado e resolva as pendências.</p>
+      <div id="painel-lista" class="grade"></div>
+    </section>
+
+    <!-- ===================== ESTUDAR ===================== -->
+    <section id="aba-estudar" class="aba oculto">
+      <h1>Registro de estudo</h1>
+      <p class="sub">Inicie a sessão: o tempo conta para a meta de hoje até você finalizar ou até atingir o limite diário.</p>
+
+      <div class="cartao oculto" id="sessao-ativa"></div>
+
+      <div class="cartao" id="sessao-nova">
+        <h2>Iniciar estudo</h2>
+        <form id="form-iniciar" class="linha">
+          <label>Planejamento
+            <select name="planejamento" id="sel-iniciar" required></select>
+          </label>
+          <button type="submit" class="primario">▶ Iniciar</button>
+        </form>
+        <p id="info-hoje" class="dica"></p>
+      </div>
+
+      <h2>Histórico de registros</h2>
+      <div class="tabela-wrap"><table id="tab-registros"></table></div>
+    </section>
+
+    <!-- ===================== PLANEJAMENTOS ===================== -->
+    <section id="aba-planejamentos" class="aba oculto">
+      <h1>Planejamentos</h1>
+      <div class="cartao">
+        <h2 id="titulo-form-plano">Novo planejamento</h2>
+        <form id="form-plano" class="form">
+          <input type="hidden" name="replanejarId" />
+          <div class="linha">
+            <label>Curso
+              <select name="curso" id="sel-plano-curso" required></select>
+            </label>
+            <label>Disciplina (opcional)
+              <select name="disciplina" id="sel-plano-disciplina"></select>
+            </label>
+          </div>
+          <div class="linha">
+            <label>Periodicidade
+              <select name="periodicidade" id="sel-periodicidade">
+                <option value="diario">Diário</option>
+                <option value="semanal" selected>Semanal</option>
+                <option value="mensal">Mensal</option>
+              </select>
+            </label>
+            <label><span id="lbl-horas">Horas por semana</span>
+              <input type="number" name="horasPorPeriodo" min="0.01" step="0.01" required value="5" />
+            </label>
+            <label>Início
+              <input type="date" name="dataInicio" />
+            </label>
+            <label>Fim (opcional)
+              <input type="date" name="dataFim" />
+            </label>
+          </div>
+          <fieldset id="distribuicao">
+            <legend>Distribuição das horas por dia <small id="soma-dist"></small></legend>
+            <div id="dist-campos" class="dist"></div>
+            <p class="dica" id="dist-dica"></p>
+          </fieldset>
+          <label>Observação
+            <input type="text" name="observacao" maxlength="200" />
+          </label>
+          <div class="acoes">
+            <button type="submit" class="primario" id="btn-salvar-plano">Criar planejamento</button>
+            <button type="button" id="btn-cancelar-replano" class="oculto">Cancelar replanejamento</button>
+          </div>
+        </form>
+      </div>
+
+      <label class="filtro"><input type="checkbox" id="chk-substituidos" /> Mostrar planejamentos substituídos</label>
+      <div class="tabela-wrap"><table id="tab-planos"></table></div>
+    </section>
+
+    <!-- ===================== METAS ===================== -->
+    <section id="aba-metas" class="aba oculto">
+      <h1>Metas</h1>
+      <div class="linha filtro">
+        <label>Situação
+          <select id="sel-situacao">
+            <option value="concluida" selected>Concluídas</option>
+            <option value="concluida_retroativamente">Concluídas retroativamente</option>
+            <option value="atrasada">Atrasadas (pendentes)</option>
+            <option value="hoje">Hoje</option>
+            <option value="futura">Futuras</option>
+            <option value="">Todas</option>
+          </select>
+        </label>
+      </div>
+      <div class="tabela-wrap"><table id="tab-metas"></table></div>
+    </section>
+
+    <!-- ===================== CURSOS ===================== -->
+    <section id="aba-cursos" class="aba oculto">
+      <h1>Cursos</h1>
+      <div class="cartao">
+        <h2 id="titulo-form-curso">Novo curso</h2>
+        <form id="form-curso" class="form">
+          <input type="hidden" name="id" />
+          <div class="linha">
+            <label>Nome <input name="nome" required maxlength="120" /></label>
+            <label>Descrição <input name="descricao" maxlength="300" /></label>
+          </div>
+          <div class="linha">
+            <label>Início (opcional) <input type="date" name="dataInicio" /></label>
+            <label>Fim (opcional) <input type="date" name="dataFim" /></label>
+            <label>Validade (opcional) <input type="date" name="validade" /></label>
+          </div>
+          <div class="acoes">
+            <button type="submit" class="primario">Salvar</button>
+            <button type="reset">Limpar</button>
+          </div>
+        </form>
+      </div>
+      <div class="tabela-wrap"><table id="tab-cursos"></table></div>
+    </section>
+
+    <!-- ===================== DISCIPLINAS ===================== -->
+    <section id="aba-disciplinas" class="aba oculto">
+      <h1>Disciplinas</h1>
+      <div class="cartao">
+        <h2 id="titulo-form-disciplina">Nova disciplina</h2>
+        <form id="form-disciplina" class="form">
+          <input type="hidden" name="id" />
+          <div class="linha">
+            <label>Curso <select name="curso" id="sel-disc-curso" required></select></label>
+            <label>Nome <input name="nome" required maxlength="120" /></label>
+            <label>Carga horária (h) <input type="number" name="cargaHoraria" min="0" step="1" /></label>
+          </div>
+          <label>Descrição <input name="descricao" maxlength="300" /></label>
+          <div class="acoes">
+            <button type="submit" class="primario">Salvar</button>
+            <button type="reset">Limpar</button>
+          </div>
+        </form>
+      </div>
+      <div class="tabela-wrap"><table id="tab-disciplinas"></table></div>
+    </section>
+  </main>
+
+  <dialog id="dlg-concluir">
+    <form method="dialog" id="form-concluir">
+      <h2>Concluir meta de <span id="dlg-data"></span></h2>
+      <p class="dica">Use quando você estudou mas não registrou na data certa.</p>
+      <label>Horas estudadas <input type="number" name="horasEstudadas" min="0.01" max="24" step="0.01" /></label>
+      <label>Observação <input name="observacao" maxlength="200" /></label>
+      <div class="acoes">
+        <button value="ok" class="primario">Concluir</button>
+        <button value="cancel" formnovalidate>Cancelar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
