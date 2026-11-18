@@ -113,7 +113,7 @@ A disciplina *HTML5 e Semântica Web* não tem planejamento. Use-a para criar o 
    - `duracao`: quantas semanas (1 a 52) ou meses (1 a 12). Padrão: 1;
    - `diasSemana`: em quais dias da semana haverá estudo (0 = domingo … 6 = sábado). Padrão: segunda a sexta;
    - `dataInicio` (padrão: hoje). A data de fim é calculada: início + N semanas ou N meses − 1 dia;
-   - só pode haver **um planejamento ativo** por curso/disciplina (para mudar, use o replanejamento);
+   - só pode haver **um planejamento em andamento (não concluído)** por curso/disciplina (para mudar, use o replanejamento). Depois que um planejamento é concluído, é possível criar um novo para o mesmo curso/disciplina;
    - cada dia de estudo do período vira uma **meta** com as horas por dia planejadas.
 4. **Registro de estudo.** Ao iniciar, o tempo passa a contar na meta de hoje do planejamento até:
    - o usuário **finalizar**, ou
@@ -128,7 +128,9 @@ A disciplina *HTML5 e Semântica Web* não tem planejamento. Use-a para criar o 
 
    Também mostra percentual concluído, horas pendentes e a lista de metas atrasadas.
 6. **Conclusão retroativa.** Uma meta de um dia que **já passou** e não foi concluída pode ser marcada como concluída (`PATCH /api/metas/{id}/concluir`), informando opcionalmente as horas estudadas (padrão: as planejadas) e uma observação. Ela fica com situação `concluida_retroativamente`. Metas de hoje ou futuras não podem ser concluídas assim: para elas use o registro de estudo.
-7. **Replanejamento.** `POST /api/planejamentos/{id}/replanejar` cria um novo planejamento para o mesmo alvo:
+7. **Replanejamento.** É possível refazer um planejamento **que ainda não foi concluído**. `POST /api/planejamentos/{id}/replanejar` cria um novo planejamento para o mesmo alvo:
+   - só vale para planejamentos ativos com pelo menos uma meta não cumprida. Um planejamento concluído (todas as metas cumpridas) retorna `422` e não mostra o botão **Refazer planejamento** no site. O campo `podeRefazer` da API indica se a ação está disponível;
+   - no site, o botão fica em cada card da tela inicial e abaixo do nome na aba Planejamentos, e abre o formulário já preenchido;
    - o anterior fica com status `substituido` (com `substituidoPor`), e o novo aponta para ele em `substitui`;
    - o histórico é preservado: metas passadas e registros continuam no planejamento antigo, e só as metas de hoje em diante sem estudo são removidas;
    - campos não enviados são herdados do anterior; `dataInicio` padrão é hoje;

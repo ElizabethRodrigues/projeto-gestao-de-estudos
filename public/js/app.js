@@ -293,7 +293,7 @@ async function carregarPlanejamentos() {
           p.observacao ? `<br><small class="dica">${esc(p.observacao)}</small>` : ''
         }
           <div class="acoes acoes-linha">
-            ${p.status === 'ativo' ? `<button class="mini destaque" data-replanejar="${p._id}">${icone('refazer')} Refazer planejamento</button>` : ''}
+            ${p.podeRefazer ? `<button class="mini destaque" data-replanejar="${p._id}">${icone('refazer')} Refazer planejamento</button>` : ''}
             <button class="mini perigo" data-excluir-plano="${p._id}">Excluir</button>
           </div>
         </td>
@@ -304,7 +304,7 @@ async function carregarPlanejamentos() {
         }</td>
         <td>${horas(p.horasPorDia)}/dia<br><small class="dica">${(p.diasSemana || []).map((d) => DIAS_SEMANA[d]).join(', ') || '—'}</small></td>
         <td>${dataBR(p.dataInicio)} a ${dataBR(p.dataFim)}</td>
-        <td>${selo(p.status)}</td></tr>`
+        <td>${p.status === 'ativo' && p.concluido ? selo('concluido') : selo(p.status)}</td></tr>`
     ),
     'Nenhum planejamento'
   );
@@ -432,6 +432,7 @@ async function iniciarReplanejamento(id) {
   if ($('#aba-planejamentos').classList.contains('oculto')) await abrirAba('planejamentos');
   const p = planosCache.find((x) => x._id === id);
   if (!p) return avisar('Planejamento não encontrado', 'erro');
+  if (!p.podeRefazer) return avisar('Somente planejamentos ainda não concluídos podem ser refeitos.', 'erro');
   const f = $('#form-plano');
   f.replanejarId.value = p._id;
   $('#sel-plano-curso').value = p.curso._id;
@@ -520,9 +521,13 @@ async function carregarPainel() {
                 .join('')}</ul>`
             : ''
         }
-        <div class="rodape-cartao">
+        ${
+          p.podeRefazer
+            ? `<div class="rodape-cartao">
           <button class="mini destaque" data-replanejar="${p._id}">${icone('refazer')} Refazer planejamento</button>
-        </div>
+        </div>`
+            : ''
+        }
       </div>`;
     })
     .join('');

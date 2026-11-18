@@ -232,7 +232,8 @@ paths:
 
         O sistema gera uma **meta** de `horasPorDia` para cada dia de estudo do período.
         O planejamento precisa caber no período e na validade do curso. Só pode haver um
-        planejamento ativo por curso/disciplina.
+        planejamento em andamento (não concluído) por curso/disciplina; depois de concluído,
+        é possível criar outro para o mesmo alvo.
       requestBody:
         required: true
         content:
@@ -299,6 +300,10 @@ paths:
       tags: [Planejamentos]
       summary: Refaz um planejamento (novo planejamento)
       description: |
+        Só é permitido para planejamentos **ativos e ainda não concluídos** (com pelo
+        menos uma meta não cumprida). Um planejamento concluído retorna **422**; o campo
+        `podeRefazer` indica se a ação está disponível.
+
         O planejamento atual passa a ter status `substituido` e é criado um novo
         planejamento para o mesmo curso/disciplina. O histórico é preservado (metas
         passadas e registros); metas de hoje em diante sem estudo são removidas do
@@ -655,6 +660,8 @@ components:
         dataInicio: { type: string, format: date }
         dataFim: { type: string, format: date, description: Calculada a partir de dataInicio, periodicidade e duracao }
         status: { type: string, enum: [ativo, substituido] }
+        concluido: { type: boolean, description: Todas as metas do planejamento foram cumpridas }
+        podeRefazer: { type: boolean, description: 'true quando o planejamento está ativo e ainda não foi concluído (regra 8)' }
         substitui: { type: string, nullable: true }
         substituidoPor: { type: string, nullable: true }
         observacao: { type: string }

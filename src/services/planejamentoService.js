@@ -107,14 +107,13 @@ function gerarMetas(plano) {
 
 async function criar(body) {
   const dados = await normalizarEntrada(body);
-  const existente = await Planejamento.findOne({
-    curso: dados.curso,
-    disciplina: dados.disciplina,
-    status: 'ativo',
-  });
+  // Só bloqueia se houver um planejamento ativo ainda NÃO concluído para o mesmo alvo
+  const ativos = await Planejamento.find({ curso: dados.curso, disciplina: dados.disciplina, status: 'ativo' });
+  const conclusao = await situacaoConclusao(ativos.map((p) => p._id));
+  const existente = ativos.find((p) => !conclusao.get(String(p._id)));
   if (existente) {
     throw conflict(
-      `Já existe um planejamento ativo para ${dados.disciplina ? 'esta disciplina' : 'este curso'} (${existente._id}). Use POST /api/planejamentos/${existente._id}/replanejar para refazê-lo.`
+      `Já existe um planejamento em andamento (não concluído) para ${dados.disciplina ? 'esta disciplina' : 'este curso'} (${existente._id}). Use "Refazer planejamento" (POST /api/planejamentos/${existente._id}/replanejar) para alterá-lo.`
     );
   }
   const plano = await Planejamento.create(dados);
@@ -139,6 +138,9 @@ async function replanejar(id, body) {
   const antigo = await Planejamento.findById(id);
   if (!antigo) throw notFound('Planejamento não encontrado');
   if (antigo.status !== 'ativo') throw conflict('Somente planejamentos ativos podem ser refeitos');
+  if ((await situacaoConclusao([antigo._id])).get(String(antigo._id))) {
+    throw unprocessable('Este planejamento já foi concluído (todas as metas cumpridas) e não pode ser refeito. Crie um novo planejamento, se quiser.');
+  }
 
   const base = {
     curso: String(antigo.curso),
@@ -177,6 +179,29 @@ async function replanejar(id, body) {
   return { anterior: antigo, novo };
 }
 
+/**
+ * Um planejamento está concluído quando tem metas e todas foram cumpridas.
+ * Retorna um Map id -> true/false para os planejamentos informados.
+ */
+async function situacaoConclusao(ids) {
+  const grupos = await Meta.aggregate([
+    { $match: { planejamento: { $in: ids.map((id) => new mongoose.Types.ObjectId(String(id))) } } },
+    { $group: { _id: '$planejamento', total: { $sum: 1 }, pendentes: { $sum: { $cond: ['$concluida', 0, 1] } } } },
+  ]);
+  const mapa = new Map(ids.map((id) => [String(id), false]));
+  for (const g of grupos) mapa.set(String(g._id), g.total > 0 && g.pendentes === 0);
+  return mapa;
+}
+
+/** Acrescenta `concluido` e `podeRefazer` (regra 8) ao JSON de cada planejamento. */
+async function comConclusao(planos) {
+  const mapa = await situacaoConclusao(planos.map((p) => p._id));
+  return planos.map((p) => {
+    const concluido = mapa.get(String(p._id)) || false;
+    return { ...p.toJSON(), concluido, podeRefazer: p.status === 'ativo' && !concluido };
+  });
+}
+
 /** Regra 5: acompanhamento do planejado x realizado. */
 async function acompanhamento(id) {
   assertObjectId(id, 'id');
@@ -204,8 +229,9 @@ async function acompanhamento(id) {
   else if (pendencias.length > 0) situacao = 'com_pendencias';
   else if (segEstudadosTotal > segPlanejadosPassado + (metaHoje ? metaHoje.segundosPlanejados : 0)) situacao = 'adiantado';
 
+  const concluido = metas.length > 0 && metas.every((m) => m.concluida);
   return {
-    planejamento: plano,
+    planejamento: { ...plano.toJSON(), concluido, podeRefazer: plano.status === 'ativo' && !concluido },
     resumo: {
       situacao,
       horasPlanejadasTotal: h(segPlanejadosTotal),
@@ -225,4 +251,4 @@ async function acompanhamento(id) {
   };
 }
 
-module.exports = { criar, replanejar, acompanhamento, gerarMetas, calcularDataFim, assertObjectId };
+module.exports = { criar, replanejar, acompanhamento, gerarMetas, calcularDataFim, assertObjectId, comConclusao };
