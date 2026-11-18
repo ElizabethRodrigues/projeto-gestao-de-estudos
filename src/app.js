@@ -15,6 +15,26 @@ function createApp() {
   app.use(express.json());
 
   // ---------- API ----------
+  // Raiz da API: descreve a aplicação e lista as rotas disponíveis
+  app.get('/api', (req, res) => {
+    res.json({
+      nome: 'Gestão de Estudos - API',
+      versao: '1.0.0',
+      documentacao: '/api-docs',
+      especificacao: '/api-docs/swagger.yaml',
+      rotas: {
+        health: 'GET /api/health',
+        cursos: 'GET, POST /api/cursos | GET, PUT, DELETE /api/cursos/{id}',
+        disciplinas: 'GET, POST /api/disciplinas | GET, PUT, DELETE /api/disciplinas/{id}',
+        planejamentos:
+          'GET, POST /api/planejamentos | GET, DELETE /api/planejamentos/{id} | POST /api/planejamentos/{id}/replanejar | GET /api/planejamentos/{id}/metas | GET /api/planejamentos/{id}/acompanhamento',
+        acompanhamento: 'GET /api/acompanhamento',
+        registros: 'GET /api/registros | GET /api/registros/ativo | GET /api/registros/{id} | POST /api/registros/iniciar | POST /api/registros/{id}/finalizar',
+        metas: 'GET /api/metas | PATCH /api/metas/{id}/concluir',
+      },
+    });
+  });
+
   app.use('/api/cursos', require('./routes/cursos'));
   app.use('/api/disciplinas', require('./routes/disciplinas'));
   app.use('/api/planejamentos', require('./routes/planejamentos'));

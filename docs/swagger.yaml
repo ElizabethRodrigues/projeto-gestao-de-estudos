@@ -30,6 +30,26 @@ tags:
     description: Saúde da aplicação
 
 paths:
+  /api:
+    get:
+      tags: [Sistema]
+      summary: Raiz da API (nome, versão, documentação e rotas disponíveis)
+      responses:
+        '200':
+          description: Informações da API
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  nome: { type: string, example: Gestão de Estudos - API }
+                  versao: { type: string, example: 1.0.0 }
+                  documentacao: { type: string, example: /api-docs }
+                  especificacao: { type: string, example: /api-docs/swagger.yaml }
+                  rotas:
+                    type: object
+                    additionalProperties: { type: string }
+
   /api/health:
     get:
       tags: [Sistema]
