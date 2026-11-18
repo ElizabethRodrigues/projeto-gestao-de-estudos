@@ -19,7 +19,7 @@ Uma plataforma de gestão de estudos com 5 funcionalidades:
 Pré-requisitos: **Node.js 18 ou superior** e npm.
 
 ```bash
-git clone https://github.com/<seu-usuario>/projeto-gestao-de-estudos.git
+git clone https://github.com/ElizabethRodrigues/projeto-gestao-de-estudos.git
 cd projeto-gestao-de-estudos
 npm install
 ```
