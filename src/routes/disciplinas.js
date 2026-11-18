@@ -6,7 +6,7 @@ const Planejamento = require('../models/Planejamento');
 const { badRequest, notFound, conflict } = require('../utils/errors');
 
 const router = Router();
-const CAMPOS = ['nome', 'descricao', 'cargaHoraria', 'curso'];
+const CAMPOS = ['nome', 'descricao', 'curso'];
 
 const pick = (body) =>
   Object.fromEntries(

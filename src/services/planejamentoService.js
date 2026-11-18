@@ -7,23 +7,24 @@ const Registro = require('../models/Registro');
 const d = require('../utils/dates');
 const { badRequest, notFound, conflict, unprocessable } = require('../utils/errors');
 
-const MAX_DIAS = 366;
 const DIAS_UTEIS = [1, 2, 3, 4, 5];
+const MAX_DURACAO = { semanal: 52, mensal: 12 };
 const round2 = (n) => Math.round(n * 100) / 100;
 
 function assertObjectId(id, campo) {
   if (!mongoose.isValidObjectId(id)) throw badRequest(`${campo} inválido`);
 }
 
-function dataFimPadrao(periodicidade, dataInicio) {
-  if (periodicidade === 'diario') return d.addDays(dataInicio, 29);
-  if (periodicidade === 'semanal') return d.addDays(dataInicio, 27);
-  return d.addDays(d.addMonths(dataInicio, 3), -1);
+/** Semanal: N semanas a partir do início. Mensal: N meses a partir do início. */
+function calcularDataFim(periodicidade, dataInicio, duracao) {
+  if (periodicidade === 'semanal') return d.addDays(dataInicio, 7 * duracao - 1);
+  return d.addDays(d.addMonths(dataInicio, duracao), -1);
 }
 
 /**
  * Valida o corpo de criação/replanejamento e devolve os dados normalizados.
- * Regra 3: horas por período + periodicidade + distribuição das horas por dia.
+ * Regra 3: o usuário informa quantas horas por dia vai dedicar, se o planejamento
+ * é semanal ou mensal e (opcionalmente) os dias da semana de estudo e a duração.
  */
 async function normalizarEntrada(body, base = {}) {
   const dados = { ...base, ...body };
@@ -44,150 +45,82 @@ async function normalizarEntrada(body, base = {}) {
   }
   if (!curso && erros.length === 0) throw notFound('Curso não encontrado');
 
-  if (!['diario', 'semanal', 'mensal'].includes(dados.periodicidade)) {
-    erros.push("periodicidade deve ser 'diario', 'semanal' ou 'mensal'");
+  if (!['semanal', 'mensal'].includes(dados.periodicidade)) {
+    erros.push("periodicidade deve ser 'semanal' ou 'mensal'");
   }
-  const horas = Number(dados.horasPorPeriodo);
-  if (!Number.isFinite(horas) || horas <= 0) erros.push('horasPorPeriodo deve ser um número maior que zero');
-  if (dados.periodicidade === 'diario' && horas > 24) erros.push('No planejamento diário, horasPorPeriodo não pode passar de 24');
+
+  const horasPorDia = Number(dados.horasPorDia);
+  if (!Number.isFinite(horasPorDia) || horasPorDia <= 0 || horasPorDia > 24) {
+    erros.push('horasPorDia deve ser um número maior que zero e no máximo 24');
+  }
+
+  const duracao = dados.duracao === undefined || dados.duracao === null || dados.duracao === '' ? 1 : Number(dados.duracao);
+  const maxDuracao = MAX_DURACAO[dados.periodicidade] || 52;
+  if (!Number.isInteger(duracao) || duracao < 1 || duracao > maxDuracao) {
+    erros.push(`duracao deve ser um número inteiro entre 1 e ${maxDuracao} (${dados.periodicidade === 'mensal' ? 'meses' : 'semanas'})`);
+  }
+
+  let diasSemana = dados.diasSemana;
+  if (diasSemana === undefined || diasSemana === null || (Array.isArray(diasSemana) && diasSemana.length === 0)) {
+    diasSemana = DIAS_UTEIS;
+  }
+  if (!Array.isArray(diasSemana) || diasSemana.some((x) => !Number.isInteger(Number(x)) || Number(x) < 0 || Number(x) > 6)) {
+    erros.push('diasSemana deve ser uma lista de números de 0 (domingo) a 6 (sábado)');
+    diasSemana = [];
+  }
+  diasSemana = [...new Set(diasSemana.map(Number))].sort((a, b) => a - b);
 
   const dataInicio = dados.dataInicio || d.today();
   if (!d.parseDateKey(dataInicio)) erros.push('dataInicio deve estar no formato YYYY-MM-DD');
-  if (dados.dataFim && !d.parseDateKey(dados.dataFim)) erros.push('dataFim deve estar no formato YYYY-MM-DD');
   if (erros.length) throw badRequest('Dados inválidos', erros);
 
-  let dataFim = dados.dataFim || dataFimPadrao(dados.periodicidade, dataInicio);
-  if (!dados.dataFim && curso.dataFim && curso.dataFim >= dataInicio && curso.dataFim < dataFim) {
-    dataFim = curso.dataFim;
-  }
-
-  if (dataFim < dataInicio) erros.push('dataFim não pode ser anterior a dataInicio');
-  if (d.daysBetween(dataInicio, dataFim) + 1 > MAX_DIAS) erros.push(`O planejamento pode ter no máximo ${MAX_DIAS} dias`);
+  const dataFim = calcularDataFim(dados.periodicidade, dataInicio, duracao);
 
   // Regras de período/validade do curso (regra 2)
   if (curso.validade && curso.validade < d.today()) erros.push(`O curso expirou em ${curso.validade}`);
-  if (curso.validade && dataFim > curso.validade) erros.push(`O planejamento não pode terminar depois da validade do curso (${curso.validade})`);
+  if (curso.validade && dataFim > curso.validade) erros.push(`O planejamento terminaria em ${dataFim}, depois da validade do curso (${curso.validade})`);
   if (curso.dataInicio && dataInicio < curso.dataInicio) erros.push(`O planejamento não pode começar antes do início do curso (${curso.dataInicio})`);
-  if (curso.dataFim && dataFim > curso.dataFim) erros.push(`O planejamento não pode terminar depois do fim do curso (${curso.dataFim})`);
-
-  const distribuicao = normalizarDistribuicao(dados.periodicidade, horas, dados.distribuicao, erros);
+  if (curso.dataFim && dataFim > curso.dataFim) erros.push(`O planejamento terminaria em ${dataFim}, depois do fim do curso (${curso.dataFim})`);
   if (erros.length) throw unprocessable('Planejamento inválido', erros);
 
   return {
     curso: curso._id,
     disciplina: disciplina ? disciplina._id : null,
     periodicidade: dados.periodicidade,
-    horasPorPeriodo: horas,
-    distribuicao,
+    horasPorDia,
+    diasSemana,
+    duracao,
     dataInicio,
     dataFim,
     observacao: dados.observacao || '',
   };
 }
 
-function normalizarDistribuicao(periodicidade, horas, distribuicao, erros) {
-  if (periodicidade === 'diario') return [];
-  const [min, max, nome] = periodicidade === 'semanal' ? [0, 6, 'dia da semana (0-6)'] : [1, 31, 'dia do mês (1-31)'];
-
-  if (distribuicao == null || (Array.isArray(distribuicao) && distribuicao.length === 0)) {
-    // Sem distribuição: semanal divide igualmente de segunda a sexta;
-    // mensal divide igualmente entre os dias úteis de cada mês (calculado na geração).
-    if (periodicidade === 'semanal') {
-      return DIAS_UTEIS.map((dia) => ({ dia, horas: round2(horas / DIAS_UTEIS.length) }));
-    }
-    return [];
-  }
-
-  if (!Array.isArray(distribuicao)) {
-    erros.push('distribuicao deve ser uma lista de { dia, horas }');
-    return [];
-  }
-
-  const vistos = new Set();
-  const lista = [];
-  for (const item of distribuicao) {
-    const dia = Number(item && item.dia);
-    const h = Number(item && item.horas);
-    if (!Number.isInteger(dia) || dia < min || dia > max) {
-      erros.push(`distribuicao.dia inválido (${item && item.dia}); esperado ${nome}`);
-      continue;
-    }
-    if (!Number.isFinite(h) || h < 0 || h > 24) {
-      erros.push(`distribuicao.horas inválido para o dia ${dia}; esperado entre 0 e 24`);
-      continue;
-    }
-    if (vistos.has(dia)) {
-      erros.push(`distribuicao.dia ${dia} repetido`);
-      continue;
-    }
-    vistos.add(dia);
-    if (h > 0) lista.push({ dia, horas: h });
-  }
-  const soma = round2(lista.reduce((acc, i) => acc + i.horas, 0));
-  if (Math.abs(soma - horas) > 0.01) {
-    erros.push(`A soma da distribuição (${soma}h) deve ser igual a horasPorPeriodo (${horas}h)`);
-  }
-  return lista.sort((a, b) => a.dia - b.dia);
-}
-
-/** Gera as metas diárias (dia + horas planejadas) do intervalo do planejamento. */
-function gerarMetas(plano, aPartirDe) {
-  const inicio = aPartirDe && aPartirDe > plano.dataInicio ? aPartirDe : plano.dataInicio;
-  if (inicio > plano.dataFim) return [];
-  const dias = d.eachDay(inicio, plano.dataFim);
-  const porDia = new Map(plano.distribuicao.map((i) => [i.dia, i.horas]));
-  const metas = [];
-
-  for (const data of dias) {
-    let horas = 0;
-    if (plano.periodicidade === 'diario') {
-      horas = plano.horasPorPeriodo;
-    } else if (plano.periodicidade === 'semanal') {
-      horas = porDia.get(d.dayOfWeek(data)) || 0;
-    } else if (porDia.size > 0) {
-      // mensal com distribuição: dias inexistentes no mês (ex. 31/02) vão para o último dia do mês
-      const diaMes = d.dayOfMonth(data);
-      const ultimoDia = new Date(d.parseDateKey(data).getFullYear(), d.parseDateKey(data).getMonth() + 1, 0).getDate();
-      horas = porDia.get(diaMes) || 0;
-      if (diaMes === ultimoDia) {
-        for (const [dia, h] of porDia) if (dia > ultimoDia) horas += h;
-      }
-    } else {
-      // mensal sem distribuição: divide igualmente entre os dias úteis do mês
-      const dow = d.dayOfWeek(data);
-      if (DIAS_UTEIS.includes(dow)) {
-        const ref = d.parseDateKey(data);
-        const ultimoDia = new Date(ref.getFullYear(), ref.getMonth() + 1, 0).getDate();
-        let uteis = 0;
-        for (let i = 1; i <= ultimoDia; i++) {
-          if (DIAS_UTEIS.includes(new Date(ref.getFullYear(), ref.getMonth(), i).getDay())) uteis++;
-        }
-        horas = plano.horasPorPeriodo / uteis;
-      }
-    }
-    const segundos = Math.round(horas * 3600);
-    if (segundos > 0) metas.push({ planejamento: plano._id, data, segundosPlanejados: segundos });
-  }
-  return metas;
+/** Gera uma meta para cada dia de estudo (dias da semana escolhidos) do intervalo do planejamento. */
+function gerarMetas(plano) {
+  const segundos = Math.round(plano.horasPorDia * 3600);
+  return d
+    .eachDay(plano.dataInicio, plano.dataFim)
+    .filter((data) => plano.diasSemana.includes(d.dayOfWeek(data)))
+    .map((data) => ({ planejamento: plano._id, data, segundosPlanejados: segundos }));
 }
 
 async function criar(body) {
   const dados = await normalizarEntrada(body);
-  const existente = await Planejamento.findOne({
-    curso: dados.curso,
-    disciplina: dados.disciplina,
-    status: 'ativo',
-  });
+  // Só bloqueia se houver um planejamento ativo ainda NÃO concluído para o mesmo alvo
+  const ativos = await Planejamento.find({ curso: dados.curso, disciplina: dados.disciplina, status: 'ativo' });
+  const conclusao = await situacaoConclusao(ativos.map((p) => p._id));
+  const existente = ativos.find((p) => !conclusao.get(String(p._id)));
   if (existente) {
     throw conflict(
-      `Já existe um planejamento ativo para este ${dados.disciplina ? 'disciplina' : 'curso'} (${existente._id}). Use POST /api/planejamentos/${existente._id}/replanejar para refazê-lo.`
+      `Já existe um planejamento em andamento (não concluído) para ${dados.disciplina ? 'esta disciplina' : 'este curso'} (${existente._id}). Use "Refazer planejamento" (POST /api/planejamentos/${existente._id}/replanejar) para alterá-lo.`
     );
   }
   const plano = await Planejamento.create(dados);
   const metas = gerarMetas(plano);
   if (metas.length === 0) {
     await plano.deleteOne();
-    throw unprocessable('O planejamento não gerou nenhuma meta no período informado. Revise a distribuição e as datas.');
+    throw unprocessable('O planejamento não gerou nenhuma meta no período informado. Revise os dias de estudo.');
   }
   await Meta.insertMany(metas);
   return plano;
@@ -205,20 +138,19 @@ async function replanejar(id, body) {
   const antigo = await Planejamento.findById(id);
   if (!antigo) throw notFound('Planejamento não encontrado');
   if (antigo.status !== 'ativo') throw conflict('Somente planejamentos ativos podem ser refeitos');
+  if ((await situacaoConclusao([antigo._id])).get(String(antigo._id))) {
+    throw unprocessable('Este planejamento já foi concluído (todas as metas cumpridas) e não pode ser refeito. Crie um novo planejamento, se quiser.');
+  }
 
   const base = {
     curso: String(antigo.curso),
     disciplina: antigo.disciplina ? String(antigo.disciplina) : null,
     periodicidade: antigo.periodicidade,
-    horasPorPeriodo: antigo.horasPorPeriodo,
-    distribuicao: body.periodicidade && body.periodicidade !== antigo.periodicidade ? undefined : antigo.distribuicao.map((i) => ({ dia: i.dia, horas: i.horas })),
+    horasPorDia: antigo.horasPorDia,
+    diasSemana: [...antigo.diasSemana],
+    duracao: antigo.duracao,
     dataInicio: d.today(),
-    dataFim: undefined,
   };
-  // Se o usuário mudar horas/periodicidade sem informar distribuição, a distribuição antiga não vale mais
-  if ((body.horasPorPeriodo !== undefined || body.periodicidade !== undefined) && body.distribuicao === undefined) {
-    base.distribuicao = undefined;
-  }
   const { curso, disciplina, ...permitido } = body; // o alvo não muda no replanejamento
   const dados = await normalizarEntrada(permitido, base);
 
@@ -245,6 +177,29 @@ async function replanejar(id, body) {
   await antigo.save();
   await Meta.insertMany(metas);
   return { anterior: antigo, novo };
+}
+
+/**
+ * Um planejamento está concluído quando tem metas e todas foram cumpridas.
+ * Retorna um Map id -> true/false para os planejamentos informados.
+ */
+async function situacaoConclusao(ids) {
+  const grupos = await Meta.aggregate([
+    { $match: { planejamento: { $in: ids.map((id) => new mongoose.Types.ObjectId(String(id))) } } },
+    { $group: { _id: '$planejamento', total: { $sum: 1 }, pendentes: { $sum: { $cond: ['$concluida', 0, 1] } } } },
+  ]);
+  const mapa = new Map(ids.map((id) => [String(id), false]));
+  for (const g of grupos) mapa.set(String(g._id), g.total > 0 && g.pendentes === 0);
+  return mapa;
+}
+
+/** Acrescenta `concluido` e `podeRefazer` (regra 8) ao JSON de cada planejamento. */
+async function comConclusao(planos) {
+  const mapa = await situacaoConclusao(planos.map((p) => p._id));
+  return planos.map((p) => {
+    const concluido = mapa.get(String(p._id)) || false;
+    return { ...p.toJSON(), concluido, podeRefazer: p.status === 'ativo' && !concluido };
+  });
 }
 
 /** Regra 5: acompanhamento do planejado x realizado. */
@@ -274,8 +229,9 @@ async function acompanhamento(id) {
   else if (pendencias.length > 0) situacao = 'com_pendencias';
   else if (segEstudadosTotal > segPlanejadosPassado + (metaHoje ? metaHoje.segundosPlanejados : 0)) situacao = 'adiantado';
 
+  const concluido = metas.length > 0 && metas.every((m) => m.concluida);
   return {
-    planejamento: plano,
+    planejamento: { ...plano.toJSON(), concluido, podeRefazer: plano.status === 'ativo' && !concluido },
     resumo: {
       situacao,
       horasPlanejadasTotal: h(segPlanejadosTotal),
@@ -295,4 +251,4 @@ async function acompanhamento(id) {
   };
 }
 
-module.exports = { criar, replanejar, acompanhamento, gerarMetas, assertObjectId };
+module.exports = { criar, replanejar, acompanhamento, gerarMetas, calcularDataFim, assertObjectId, comConclusao };

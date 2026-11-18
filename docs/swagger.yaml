@@ -146,9 +146,8 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/DisciplinaEntrada' }
             example:
-              nome: Gramática
-              descricao: Tempos verbais
-              cargaHoraria: 20
+              nome: CSS3 e Layouts Responsivos
+              descricao: Seletores, Flexbox, Grid e media queries
               curso: 6740f1c2a1b2c3d4e5f60718
       responses:
         '201':
@@ -223,20 +222,18 @@ paths:
       tags: [Planejamentos]
       summary: Cria um planejamento de estudo para um curso ou disciplina
       description: |
-        Informe as horas que serão dedicadas por período (`horasPorPeriodo`), a
-        `periodicidade` (diario, semanal ou mensal) e como as horas se distribuem
-        pelos dias (`distribuicao`). O sistema gera uma **meta** para cada dia com estudo.
+        Informe quantas horas por dia vai dedicar (`horasPorDia`) e se o planejamento é
+        **semanal** ou **mensal** (`periodicidade`). As horas são definidas aqui, não no
+        cadastro da disciplina.
 
-        - **diario**: `horasPorPeriodo` horas todos os dias. `distribuicao` é ignorada.
-        - **semanal**: `distribuicao[].dia` = dia da semana (0 = domingo ... 6 = sábado).
-          Sem distribuição, as horas são divididas igualmente de segunda a sexta.
-        - **mensal**: `distribuicao[].dia` = dia do mês (1 a 31; dias inexistentes vão para
-          o último dia do mês). Sem distribuição, as horas são divididas igualmente
-          entre os dias úteis de cada mês.
+        - `diasSemana`: dias de estudo, de 0 (domingo) a 6 (sábado). Padrão: segunda a sexta.
+        - `duracao`: quantidade de semanas (semanal, 1 a 52) ou de meses (mensal, 1 a 12). Padrão: 1.
+        - `dataInicio`: padrão hoje. A `dataFim` é calculada: início + N semanas ou N meses − 1 dia.
 
-        A soma da distribuição deve ser igual a `horasPorPeriodo`. Se `dataFim` não for
-        informada, o padrão é 30 dias (diário), 4 semanas (semanal) ou 3 meses (mensal),
-        limitado ao fim do curso. Só pode haver um planejamento ativo por curso/disciplina.
+        O sistema gera uma **meta** de `horasPorDia` para cada dia de estudo do período.
+        O planejamento precisa caber no período e na validade do curso. Só pode haver um
+        planejamento em andamento (não concluído) por curso/disciplina; depois de concluído,
+        é possível criar outro para o mesmo alvo.
       requestBody:
         required: true
         content:
@@ -244,23 +241,20 @@ paths:
             schema: { $ref: '#/components/schemas/PlanejamentoEntrada' }
             examples:
               semanal:
-                summary: Semanal com distribuição
+                summary: Semanal, 2h por dia, 2 semanas (seg, qua e sex)
                 value:
                   disciplina: 6740f1c2a1b2c3d4e5f60719
                   periodicidade: semanal
-                  horasPorPeriodo: 5
-                  distribuicao:
-                    - { dia: 2, horas: 2 }
-                    - { dia: 4, horas: 2 }
-                    - { dia: 6, horas: 1 }
-              diario:
-                summary: Diário
+                  horasPorDia: 2
+                  diasSemana: [1, 3, 5]
+                  duracao: 2
+              mensal:
+                summary: Mensal, 1,5h por dia, 1 mês (segunda a sexta)
                 value:
                   curso: 6740f1c2a1b2c3d4e5f60718
-                  periodicidade: diario
-                  horasPorPeriodo: 1.5
-                  dataInicio: '2026-11-18'
-                  dataFim: '2026-12-18'
+                  periodicidade: mensal
+                  horasPorDia: 1.5
+                  dataInicio: '2026-12-01'
       responses:
         '201':
           description: Planejamento criado e metas geradas
@@ -306,6 +300,10 @@ paths:
       tags: [Planejamentos]
       summary: Refaz um planejamento (novo planejamento)
       description: |
+        Só é permitido para planejamentos **ativos e ainda não concluídos** (com pelo
+        menos uma meta não cumprida). Um planejamento concluído retorna **422**; o campo
+        `podeRefazer` indica se a ação está disponível.
+
         O planejamento atual passa a ter status `substituido` e é criado um novo
         planejamento para o mesmo curso/disciplina. O histórico é preservado (metas
         passadas e registros); metas de hoje em diante sem estudo são removidas do
@@ -316,8 +314,8 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/ReplanejamentoEntrada' }
             example:
-              periodicidade: diario
-              horasPorPeriodo: 2
+              periodicidade: mensal
+              horasPorDia: 2
       responses:
         '201':
           description: Planejamento refeito
@@ -597,9 +595,8 @@ components:
       type: object
       required: [nome, curso]
       properties:
-        nome: { type: string }
+        nome: { type: string, description: Nome da disciplina }
         descricao: { type: string }
-        cargaHoraria: { type: number, nullable: true }
         curso: { type: string, description: Id do curso }
 
     Disciplina:
@@ -608,7 +605,6 @@ components:
         _id: { type: string }
         nome: { type: string }
         descricao: { type: string }
-        cargaHoraria: { type: number, nullable: true }
         curso:
           oneOf:
             - type: string
@@ -616,41 +612,35 @@ components:
         criadoEm: { type: string, format: date-time }
         atualizadoEm: { type: string, format: date-time }
 
-    Distribuicao:
-      type: object
-      required: [dia, horas]
-      properties:
-        dia:
-          type: integer
-          description: 'semanal: 0 (domingo) a 6 (sábado) | mensal: 1 a 31'
-        horas: { type: number }
+    DiasSemana:
+      type: array
+      description: 'Dias de estudo: 0 (domingo) a 6 (sábado). Padrão: [1, 2, 3, 4, 5]'
+      items: { type: integer, minimum: 0, maximum: 6 }
+      example: [1, 2, 3, 4, 5]
 
     PlanejamentoEntrada:
       type: object
-      required: [periodicidade, horasPorPeriodo]
+      required: [periodicidade, horasPorDia]
       description: Informe `curso` ou `disciplina` (a disciplina define o curso automaticamente).
       properties:
         curso: { type: string }
         disciplina: { type: string }
-        periodicidade: { type: string, enum: [diario, semanal, mensal] }
-        horasPorPeriodo: { type: number, description: Horas por dia, semana ou mês }
-        distribuicao:
-          type: array
-          items: { $ref: '#/components/schemas/Distribuicao' }
+        periodicidade: { type: string, enum: [semanal, mensal] }
+        horasPorDia: { type: number, minimum: 0.01, maximum: 24, description: Horas de estudo por dia }
+        diasSemana: { $ref: '#/components/schemas/DiasSemana' }
+        duracao: { type: integer, minimum: 1, description: 'Semanas (1 a 52) ou meses (1 a 12). Padrão: 1' }
         dataInicio: { type: string, format: date, description: 'Padrão: hoje' }
-        dataFim: { type: string, format: date }
         observacao: { type: string }
 
     ReplanejamentoEntrada:
       type: object
+      description: Campos não enviados são herdados do planejamento anterior.
       properties:
-        periodicidade: { type: string, enum: [diario, semanal, mensal] }
-        horasPorPeriodo: { type: number }
-        distribuicao:
-          type: array
-          items: { $ref: '#/components/schemas/Distribuicao' }
+        periodicidade: { type: string, enum: [semanal, mensal] }
+        horasPorDia: { type: number }
+        diasSemana: { $ref: '#/components/schemas/DiasSemana' }
+        duracao: { type: integer, minimum: 1 }
         dataInicio: { type: string, format: date }
-        dataFim: { type: string, format: date }
         observacao: { type: string }
 
     Planejamento:
@@ -663,14 +653,15 @@ components:
           allOf:
             - $ref: '#/components/schemas/Referencia'
         alvo: { type: string, enum: [curso, disciplina] }
-        periodicidade: { type: string, enum: [diario, semanal, mensal] }
-        horasPorPeriodo: { type: number }
-        distribuicao:
-          type: array
-          items: { $ref: '#/components/schemas/Distribuicao' }
+        periodicidade: { type: string, enum: [semanal, mensal] }
+        horasPorDia: { type: number }
+        diasSemana: { $ref: '#/components/schemas/DiasSemana' }
+        duracao: { type: integer }
         dataInicio: { type: string, format: date }
-        dataFim: { type: string, format: date }
+        dataFim: { type: string, format: date, description: Calculada a partir de dataInicio, periodicidade e duracao }
         status: { type: string, enum: [ativo, substituido] }
+        concluido: { type: boolean, description: Todas as metas do planejamento foram cumpridas }
+        podeRefazer: { type: boolean, description: 'true quando o planejamento está ativo e ainda não foi concluído (regra 8)' }
         substitui: { type: string, nullable: true }
         substituidoPor: { type: string, nullable: true }
         observacao: { type: string }

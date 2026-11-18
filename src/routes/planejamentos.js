@@ -19,7 +19,7 @@ router.get('/', async (req, res) => {
       filtro[campo] = req.query[campo];
     }
   }
-  res.json(await popular(Planejamento.find(filtro).sort({ criadoEm: -1 })));
+  res.json(await service.comConclusao(await popular(Planejamento.find(filtro).sort({ criadoEm: -1 }))));
 });
 
 router.get('/:id', async (req, res) => {
@@ -27,7 +27,8 @@ router.get('/:id', async (req, res) => {
   const plano = await popular(Planejamento.findById(req.params.id));
   if (!plano) throw notFound('Planejamento não encontrado');
   const metas = await Meta.find({ planejamento: plano._id }).sort({ data: 1 });
-  res.json({ ...plano.toJSON(), metas });
+  const [comSituacao] = await service.comConclusao([plano]);
+  res.json({ ...comSituacao, metas });
 });
 
 router.post('/', async (req, res) => {

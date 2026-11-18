@@ -43,7 +43,12 @@ function createApp() {
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDoc, { customSiteTitle: 'Gestão de Estudos - API' }));
 
   // ---------- Site Web ----------
-  app.use(express.static(path.join(__dirname, '..', 'public')));
+  // "no-cache": o navegador sempre confere se há versão nova do site (evita JS/CSS desatualizado)
+  app.use(
+    express.static(path.join(__dirname, '..', 'public'), {
+      setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache'),
+    })
+  );
 
   app.use('/api', (req, res) => {
     res.status(404).json({ erro: 'Rota não encontrada' });

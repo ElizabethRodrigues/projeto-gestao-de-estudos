@@ -7,12 +7,14 @@ API REST + site Web para planejar e acompanhar estudos.
 Uma plataforma de gestão de estudos com 5 funcionalidades:
 
 1. **Cadastro de curso**: nome, descrição e, opcionalmente, período (início/fim) e validade.
-2. **Cadastro de disciplina**: cada disciplina pertence a um curso.
-3. **Planejamento de estudo**: quantas horas dedicar a um curso ou disciplina, com periodicidade diária, semanal ou mensal e distribuição das horas pelos dias. O sistema gera uma **meta diária** para cada dia com estudo.
+2. **Cadastro de disciplina**: nome e descrição da disciplina; cada disciplina pertence a um curso.
+3. **Planejamento de estudo**: quantas horas por dia dedicar a um curso ou disciplina, se o planejamento é semanal ou mensal e em quais dias da semana. O sistema gera uma **meta diária** para cada dia de estudo.
 4. **Registro de horas estudadas**: cronômetro que conta o tempo na meta do dia até o usuário finalizar ou até atingir o limite diário (aí a sessão é finalizada automaticamente).
 5. **Metas concluídas**: acompanhamento do planejado x realizado, lista de metas concluídas e de pendências, conclusão retroativa de metas e replanejamento.
 
 **Tecnologias:** Node.js, Express 5, Mongoose, [mongodb-memory-server](https://github.com/typegoose/mongodb-memory-server) (MongoDB em memória), Swagger UI (`swagger-ui-express`) e um frontend em HTML/CSS/JavaScript puro, servido pelo próprio Express.
+
+**Site:** menu lateral (Início, Estudar, Planejamentos, Metas, Cursos e Disciplinas), tema **claro ou escuro** (botão no rodapé do menu; a escolha fica salva no navegador) e o botão **Adicionar tarefa** na tela inicial, que abre o formulário de novo planejamento de estudo. No celular, o menu vira uma barra no topo com o botão ☰.
 
 ## Como instalar
 
@@ -81,24 +83,22 @@ Carregados automaticamente ao iniciar (`src/seed.js`). As datas são **relativas
 
 | Nome | Início | Fim | Validade |
 | --- | --- | --- | --- |
-| Desenvolvimento Web Full Stack | hoje − 30 dias | hoje + 90 dias | hoje + 365 dias |
+| Desenvolvimento Web | hoje − 30 dias | hoje + 90 dias | hoje + 365 dias |
 
 **Disciplinas (3)**, todas do curso acima:
 
-| Disciplina | Carga horária |
-| --- | --- |
-| Lógica de Programação com JavaScript | 40h |
-| Desenvolvimento de APIs com Node.js | 60h |
-| Banco de Dados NoSQL com MongoDB | 30h |
+- Introdução ao Desenvolvimento Web
+- Lógica de Programação
+- HTML5 e Semântica Web
 
 **Planejamentos (2)**, ambos inteiramente no passado. As metas são geradas a partir do planejamento, e **nenhuma meta é cadastrada para hoje ou para o futuro**:
 
 | Disciplina | Planejamento | Situação |
 | --- | --- | --- |
-| Lógica de Programação com JavaScript | Diário, 1h/dia, de hoje − 20 a hoje − 14 (7 metas) | **Concluído**: todas as metas foram cumpridas. |
-| Desenvolvimento de APIs com Node.js | Diário, 1h/dia, de hoje − 6 a ontem (6 metas) | **Atrasado**: 3 metas concluídas, 1 parcial (0,5h) e 2 não informadas. Serve para testar a conclusão retroativa. |
+| Introdução ao Desenvolvimento Web | Semanal, 1 semana, 1h/dia de segunda a sexta, de hoje − 21 a hoje − 15 (5 metas) | **Concluído**: todas as metas foram cumpridas. |
+| Lógica de Programação | Semanal, 1 semana, 1,5h/dia de segunda a sexta, de hoje − 7 a ontem (5 metas) | **Atrasado**: 2 metas concluídas, 1 parcial (0,75h) e 2 não informadas. Serve para testar a conclusão retroativa. |
 
-A disciplina *Banco de Dados NoSQL com MongoDB* não tem planejamento. Use-a para criar o seu e testar o registro de estudo.
+A disciplina *HTML5 e Semântica Web* não tem planejamento. Use-a para criar o seu e testar o registro de estudo.
 
 ## Regras de negócio
 
@@ -107,14 +107,14 @@ A disciplina *Banco de Dados NoSQL com MongoDB* não tem planejamento. Use-a par
    - `dataFim` não pode ser anterior a `dataInicio`;
    - o planejamento precisa caber no período do curso e terminar até a validade;
    - não é possível planejar um curso com validade vencida.
-3. **Planejamento de horas.** O usuário informa o alvo (curso inteiro ou uma disciplina), `horasPorPeriodo`, a `periodicidade` e a `distribuicao` das horas pelos dias:
-   - **diário**: as horas valem para todos os dias (máx. 24h/dia);
-   - **semanal**: `distribuicao[].dia` é o dia da semana (0 = domingo … 6 = sábado). Sem distribuição, as horas são divididas igualmente de segunda a sexta;
-   - **mensal**: `distribuicao[].dia` é o dia do mês (1–31; um dia que não existe no mês, como 31/02, vai para o último dia). Sem distribuição, as horas são divididas entre os dias úteis de cada mês;
-   - a soma da distribuição deve ser igual a `horasPorPeriodo`;
-   - sem `dataFim`, o padrão é 30 dias (diário), 4 semanas (semanal) ou 3 meses (mensal), limitado ao fim do curso; um planejamento tem no máximo 366 dias;
-   - só pode haver **um planejamento ativo** por curso/disciplina (para mudar, use o replanejamento);
-   - cada dia com horas vira uma **meta** (`data`, horas planejadas, horas estudadas).
+3. **Planejamento de horas.** No planejamento de estudo, o usuário informa quantas **horas por dia** vai dedicar ao curso ou à disciplina e se o planejamento é **semanal** ou **mensal**. As horas são definidas aqui, não no cadastro da disciplina.
+   - `horasPorDia`: de 0,01 a 24;
+   - `periodicidade`: `semanal` ou `mensal`;
+   - `duracao`: quantas semanas (1 a 52) ou meses (1 a 12). Padrão: 1;
+   - `diasSemana`: em quais dias da semana haverá estudo (0 = domingo … 6 = sábado). Padrão: segunda a sexta;
+   - `dataInicio` (padrão: hoje). A data de fim é calculada: início + N semanas ou N meses − 1 dia;
+   - só pode haver **um planejamento em andamento (não concluído)** por curso/disciplina (para mudar, use o replanejamento). Depois que um planejamento é concluído, é possível criar um novo para o mesmo curso/disciplina;
+   - cada dia de estudo do período vira uma **meta** com as horas por dia planejadas.
 4. **Registro de estudo.** Ao iniciar, o tempo passa a contar na meta de hoje do planejamento até:
    - o usuário **finalizar**, ou
    - o tempo atingir o **limite diário** (horas planejadas − horas já estudadas no dia). Aí o registro é **finalizado automaticamente** (`finalizado_automaticamente`).
@@ -128,7 +128,9 @@ A disciplina *Banco de Dados NoSQL com MongoDB* não tem planejamento. Use-a par
 
    Também mostra percentual concluído, horas pendentes e a lista de metas atrasadas.
 6. **Conclusão retroativa.** Uma meta de um dia que **já passou** e não foi concluída pode ser marcada como concluída (`PATCH /api/metas/{id}/concluir`), informando opcionalmente as horas estudadas (padrão: as planejadas) e uma observação. Ela fica com situação `concluida_retroativamente`. Metas de hoje ou futuras não podem ser concluídas assim: para elas use o registro de estudo.
-7. **Replanejamento.** `POST /api/planejamentos/{id}/replanejar` cria um novo planejamento para o mesmo alvo:
+7. **Replanejamento.** É possível refazer um planejamento **que ainda não foi concluído**. `POST /api/planejamentos/{id}/replanejar` cria um novo planejamento para o mesmo alvo:
+   - só vale para planejamentos ativos com pelo menos uma meta não cumprida. Um planejamento concluído (todas as metas cumpridas) retorna `422` e não mostra o botão **Refazer planejamento** no site. O campo `podeRefazer` da API indica se a ação está disponível;
+   - no site, o botão fica em cada card da tela inicial e abaixo do nome na aba Planejamentos, e abre o formulário já preenchido;
    - o anterior fica com status `substituido` (com `substituidoPor`), e o novo aponta para ele em `substitui`;
    - o histórico é preservado: metas passadas e registros continuam no planejamento antigo, e só as metas de hoje em diante sem estudo são removidas;
    - campos não enviados são herdados do anterior; `dataInicio` padrão é hoje;

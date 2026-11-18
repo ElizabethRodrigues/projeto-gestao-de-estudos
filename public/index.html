@@ -4,170 +4,275 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Gestão de Estudos</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234f46e5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z'/%3E%3Cpath d='M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z'/%3E%3C/svg%3E" />
+  <script>
+    // Aplica o tema salvo antes de desenhar a página (evita "piscar")
+    try {
+      var t = localStorage.getItem('tema');
+      if (t === 'claro' || t === 'escuro') document.documentElement.dataset.theme = t === 'claro' ? 'light' : 'dark';
+    } catch (e) {}
+  </script>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <header class="topo">
-    <div class="marca">📚 Gestão de Estudos</div>
-    <nav id="menu">
-      <button data-aba="painel" class="ativo">Acompanhamento</button>
-      <button data-aba="estudar">Estudar</button>
-      <button data-aba="planejamentos">Planejamentos</button>
-      <button data-aba="metas">Metas</button>
-      <button data-aba="cursos">Cursos</button>
-      <button data-aba="disciplinas">Disciplinas</button>
-    </nav>
-  </header>
+  <!-- Biblioteca de ícones (SVG) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-livro" viewBox="0 0 24 24"><path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/></symbol>
+      <symbol id="i-painel" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></symbol>
+      <symbol id="i-relogio" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/></symbol>
+      <symbol id="i-calendario" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="m9 15 2 2 4-4"/></symbol>
+      <symbol id="i-alvo" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></symbol>
+      <symbol id="i-capelo" viewBox="0 0 24 24"><path d="m2 9 10-5 10 5-10 5z"/><path d="M6 11v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5"/><path d="M22 9v6"/></symbol>
+      <symbol id="i-camadas" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></symbol>
+      <symbol id="i-sol" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+      <symbol id="i-lua" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+      <symbol id="i-mais" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z"/></symbol>
+      <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></symbol>
+      <symbol id="i-alerta" viewBox="0 0 24 24"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/></symbol>
+      <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+      <symbol id="i-refazer" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></symbol>
+      <symbol id="i-chama" viewBox="0 0 24 24"><path d="M12 22c4 0 7-3 7-7 0-4-3-6-4-10-2 2-3 4-3 6-1-1-2-2-2-4-2 2-5 5-5 8 0 4 3 7 7 7z"/></symbol>
+    </defs>
+  </svg>
+
+  <div class="layout">
+    <aside class="lateral" id="lateral">
+      <div class="marca">
+        <span class="logo"><svg><use href="#i-livro"/></svg></span>
+        <div>
+          <b>Gestão de Estudos</b>
+          <small>Planeje · Estude · Conclua</small>
+        </div>
+        <button class="so-mobile icone-btn" id="btn-menu" aria-label="Abrir menu" aria-expanded="false"><svg><use href="#i-menu"/></svg></button>
+      </div>
+
+      <nav id="menu" aria-label="Menu principal">
+        <button data-aba="painel" class="ativo"><svg><use href="#i-painel"/></svg>Início</button>
+        <button data-aba="estudar"><svg><use href="#i-relogio"/></svg>Estudar</button>
+        <button data-aba="planejamentos"><svg><use href="#i-calendario"/></svg>Planejamentos</button>
+        <button data-aba="metas"><svg><use href="#i-alvo"/></svg>Metas</button>
+        <span class="nav-grupo">Cadastros</span>
+        <button data-aba="cursos"><svg><use href="#i-capelo"/></svg>Cursos</button>
+        <button data-aba="disciplinas"><svg><use href="#i-camadas"/></svg>Disciplinas</button>
+      </nav>
+
+      <div class="rodape-lateral">
+        <button id="btn-tema" class="tema-btn" aria-label="Alternar tema">
+          <svg class="ic-sol"><use href="#i-sol"/></svg>
+          <svg class="ic-lua"><use href="#i-lua"/></svg>
+          <span id="txt-tema">Tema escuro</span>
+        </button>
+      </div>
+    </aside>
+
+    <main>
+      <!-- ===================== INÍCIO / ACOMPANHAMENTO ===================== -->
+      <section id="aba-painel" class="aba">
+        <div class="hero">
+          <div class="hero-texto">
+            <p class="hero-data" id="hero-data"></p>
+            <h1 id="hero-saudacao">Olá! Bons estudos.</h1>
+            <p id="hero-frase" class="hero-frase"></p>
+            <button class="primario grande" id="btn-adicionar-tarefa">
+              <svg><use href="#i-mais"/></svg> Adicionar tarefa
+            </button>
+          </div>
+          <svg class="hero-ilustracao" viewBox="0 0 200 140" aria-hidden="true">
+            <rect x="20" y="95" width="120" height="16" rx="3" class="il-a"/>
+            <rect x="30" y="79" width="105" height="16" rx="3" class="il-b"/>
+            <rect x="24" y="63" width="112" height="16" rx="3" class="il-c"/>
+            <path d="M40 63V40h30l10 10v13" class="il-traco"/>
+            <circle cx="160" cy="52" r="28" class="il-relogio"/>
+            <path d="M160 36v16l10 8" class="il-ponteiro"/>
+            <path d="M150 112l8 8 18-22" class="il-check"/>
+          </svg>
+        </div>
+
+        <div class="kpis-home" id="kpis-home"></div>
+
+        <div class="titulo-secao">
+          <h2><svg><use href="#i-calendario"/></svg>Acompanhamento dos planejamentos</h2>
+          <p class="sub">Compare o que foi planejado com o que foi estudado e resolva as pendências.</p>
+        </div>
+        <div id="painel-lista" class="grade"></div>
+      </section>
+
+      <!-- ===================== ESTUDAR ===================== -->
+      <section id="aba-estudar" class="aba oculto">
+        <div class="titulo-pagina">
+          <span class="ic-pagina"><svg><use href="#i-relogio"/></svg></span>
+          <div>
+            <h1>Registro de estudo</h1>
+            <p class="sub">O tempo conta para a meta de hoje até você finalizar ou até atingir o limite diário.</p>
+          </div>
+        </div>
+
+        <div class="cartao sessao oculto" id="sessao-ativa"></div>
+
+        <div class="cartao" id="sessao-nova">
+          <h2>Iniciar estudo</h2>
+          <form id="form-iniciar" class="linha" autocomplete="off">
+            <label>Planejamento
+              <select name="planejamento" id="sel-iniciar" required></select>
+            </label>
+            <button type="submit" class="primario"><svg><use href="#i-play"/></svg> Iniciar</button>
+          </form>
+          <p id="info-hoje" class="dica"></p>
+        </div>
+
+        <h2>Histórico de registros</h2>
+        <div class="tabela-wrap"><table id="tab-registros"></table></div>
+      </section>
+
+      <!-- ===================== PLANEJAMENTOS ===================== -->
+      <section id="aba-planejamentos" class="aba oculto">
+        <div class="titulo-pagina">
+          <span class="ic-pagina"><svg><use href="#i-calendario"/></svg></span>
+          <div>
+            <h1>Planejamentos</h1>
+            <p class="sub">Defina quantas horas por dia você vai estudar, em quais dias e por quanto tempo.</p>
+          </div>
+        </div>
+        <div class="cartao">
+          <h2 id="titulo-form-plano">Novo planejamento</h2>
+          <p class="aviso-replano oculto" id="aviso-replano">
+            <svg><use href="#i-refazer"/></svg>
+            <span>Ajuste o que quiser e salve. O planejamento atual passa a <b>substituído</b> e fica no histórico (metas e registros já feitos não se perdem). O planejamento refeito vale a partir da data de início informada.</span>
+          </p>
+          <form id="form-plano" class="form" autocomplete="off">
+            <input type="hidden" name="replanejarId" />
+            <div class="linha">
+              <label>Curso
+                <select name="curso" id="sel-plano-curso" required></select>
+              </label>
+              <label>Disciplina (opcional)
+                <select name="disciplina" id="sel-plano-disciplina"></select>
+              </label>
+            </div>
+            <div class="linha">
+              <label>Periodicidade
+                <select name="periodicidade" id="sel-periodicidade">
+                  <option value="semanal" selected>Semanal</option>
+                  <option value="mensal">Mensal</option>
+                </select>
+              </label>
+              <label><span id="lbl-duracao">Duração (semanas)</span>
+                <input type="number" name="duracao" min="1" max="52" step="1" value="1" required />
+              </label>
+              <label>Horas por dia
+                <input type="number" name="horasPorDia" min="0.25" max="24" step="0.25" value="1" required />
+              </label>
+              <label>Início
+                <input type="date" name="dataInicio" />
+              </label>
+            </div>
+            <fieldset>
+              <legend>Dias de estudo</legend>
+              <div class="chips" id="dias-semana"></div>
+            </fieldset>
+            <div class="resumo-plano" id="resumo-plano"></div>
+            <label>Observação
+              <input type="text" name="observacao" maxlength="200" />
+            </label>
+            <div class="acoes">
+              <button type="submit" class="primario" id="btn-salvar-plano">Criar planejamento</button>
+              <button type="button" id="btn-cancelar-replano" class="oculto">Cancelar replanejamento</button>
+            </div>
+          </form>
+        </div>
+
+        <label class="filtro"><input type="checkbox" id="chk-substituidos" /> Mostrar planejamentos substituídos</label>
+        <div class="tabela-wrap"><table id="tab-planos"></table></div>
+      </section>
+
+      <!-- ===================== METAS ===================== -->
+      <section id="aba-metas" class="aba oculto">
+        <div class="titulo-pagina">
+          <span class="ic-pagina"><svg><use href="#i-alvo"/></svg></span>
+          <div>
+            <h1>Metas</h1>
+            <p class="sub">Cada dia de estudo do planejamento é uma meta.</p>
+          </div>
+        </div>
+        <div class="linha filtro">
+          <label>Situação
+            <select id="sel-situacao">
+              <option value="concluida" selected>Concluídas</option>
+              <option value="concluida_retroativamente">Concluídas retroativamente</option>
+              <option value="atrasada">Atrasadas (pendentes)</option>
+              <option value="hoje">Hoje</option>
+              <option value="futura">Futuras</option>
+              <option value="">Todas</option>
+            </select>
+          </label>
+        </div>
+        <div class="tabela-wrap"><table id="tab-metas"></table></div>
+      </section>
+
+      <!-- ===================== CURSOS ===================== -->
+      <section id="aba-cursos" class="aba oculto">
+        <div class="titulo-pagina">
+          <span class="ic-pagina"><svg><use href="#i-capelo"/></svg></span>
+          <div>
+            <h1>Cursos</h1>
+            <p class="sub">Um curso reúne várias disciplinas. Período e validade são opcionais.</p>
+          </div>
+        </div>
+        <div class="cartao">
+          <h2 id="titulo-form-curso">Novo curso</h2>
+          <form id="form-curso" class="form" autocomplete="off">
+            <input type="hidden" name="id" />
+            <div class="linha">
+              <label>Nome do curso <input name="nome" required maxlength="120" placeholder="Ex.: Desenvolvimento Web" /></label>
+              <label>Descrição <input name="descricao" maxlength="300" /></label>
+            </div>
+            <div class="linha">
+              <label>Início (opcional) <input type="date" name="dataInicio" /></label>
+              <label>Fim (opcional) <input type="date" name="dataFim" /></label>
+              <label>Validade (opcional) <input type="date" name="validade" /></label>
+            </div>
+            <div class="acoes">
+              <button type="submit" class="primario">Salvar curso</button>
+              <button type="reset">Limpar</button>
+            </div>
+          </form>
+        </div>
+        <div class="tabela-wrap"><table id="tab-cursos"></table></div>
+      </section>
+
+      <!-- ===================== DISCIPLINAS ===================== -->
+      <section id="aba-disciplinas" class="aba oculto">
+        <div class="titulo-pagina">
+          <span class="ic-pagina"><svg><use href="#i-camadas"/></svg></span>
+          <div>
+            <h1>Disciplinas</h1>
+            <p class="sub">As horas de estudo de cada disciplina são definidas no planejamento.</p>
+          </div>
+        </div>
+        <div class="cartao">
+          <h2 id="titulo-form-disciplina">Nova disciplina</h2>
+          <form id="form-disciplina" class="form" autocomplete="off">
+            <input type="hidden" name="id" />
+            <div class="linha">
+              <label>Curso <select name="curso" id="sel-disc-curso" required></select></label>
+              <label>Nome da disciplina <input name="nome" required maxlength="120" placeholder="Ex.: HTML5 e Semântica Web" /></label>
+            </div>
+            <label>Descrição da disciplina <input name="descricao" maxlength="300" /></label>
+            <div class="acoes">
+              <button type="submit" class="primario">Salvar disciplina</button>
+              <button type="reset">Limpar</button>
+            </div>
+          </form>
+        </div>
+        <div class="tabela-wrap"><table id="tab-disciplinas"></table></div>
+      </section>
+    </main>
+  </div>
 
   <div id="aviso" class="aviso oculto" role="status"></div>
-
-  <main>
-    <!-- ===================== ACOMPANHAMENTO ===================== -->
-    <section id="aba-painel" class="aba">
-      <h1>Acompanhamento</h1>
-      <p class="sub">Compare o que foi planejado com o que foi estudado e resolva as pendências.</p>
-      <div id="painel-lista" class="grade"></div>
-    </section>
-
-    <!-- ===================== ESTUDAR ===================== -->
-    <section id="aba-estudar" class="aba oculto">
-      <h1>Registro de estudo</h1>
-      <p class="sub">Inicie a sessão: o tempo conta para a meta de hoje até você finalizar ou até atingir o limite diário.</p>
-
-      <div class="cartao oculto" id="sessao-ativa"></div>
-
-      <div class="cartao" id="sessao-nova">
-        <h2>Iniciar estudo</h2>
-        <form id="form-iniciar" class="linha">
-          <label>Planejamento
-            <select name="planejamento" id="sel-iniciar" required></select>
-          </label>
-          <button type="submit" class="primario">▶ Iniciar</button>
-        </form>
-        <p id="info-hoje" class="dica"></p>
-      </div>
-
-      <h2>Histórico de registros</h2>
-      <div class="tabela-wrap"><table id="tab-registros"></table></div>
-    </section>
-
-    <!-- ===================== PLANEJAMENTOS ===================== -->
-    <section id="aba-planejamentos" class="aba oculto">
-      <h1>Planejamentos</h1>
-      <div class="cartao">
-        <h2 id="titulo-form-plano">Novo planejamento</h2>
-        <form id="form-plano" class="form">
-          <input type="hidden" name="replanejarId" />
-          <div class="linha">
-            <label>Curso
-              <select name="curso" id="sel-plano-curso" required></select>
-            </label>
-            <label>Disciplina (opcional)
-              <select name="disciplina" id="sel-plano-disciplina"></select>
-            </label>
-          </div>
-          <div class="linha">
-            <label>Periodicidade
-              <select name="periodicidade" id="sel-periodicidade">
-                <option value="diario">Diário</option>
-                <option value="semanal" selected>Semanal</option>
-                <option value="mensal">Mensal</option>
-              </select>
-            </label>
-            <label><span id="lbl-horas">Horas por semana</span>
-              <input type="number" name="horasPorPeriodo" min="0.01" step="0.01" required value="5" />
-            </label>
-            <label>Início
-              <input type="date" name="dataInicio" />
-            </label>
-            <label>Fim (opcional)
-              <input type="date" name="dataFim" />
-            </label>
-          </div>
-          <fieldset id="distribuicao">
-            <legend>Distribuição das horas por dia <small id="soma-dist"></small></legend>
-            <div id="dist-campos" class="dist"></div>
-            <p class="dica" id="dist-dica"></p>
-          </fieldset>
-          <label>Observação
-            <input type="text" name="observacao" maxlength="200" />
-          </label>
-          <div class="acoes">
-            <button type="submit" class="primario" id="btn-salvar-plano">Criar planejamento</button>
-            <button type="button" id="btn-cancelar-replano" class="oculto">Cancelar replanejamento</button>
-          </div>
-        </form>
-      </div>
-
-      <label class="filtro"><input type="checkbox" id="chk-substituidos" /> Mostrar planejamentos substituídos</label>
-      <div class="tabela-wrap"><table id="tab-planos"></table></div>
-    </section>
-
-    <!-- ===================== METAS ===================== -->
-    <section id="aba-metas" class="aba oculto">
-      <h1>Metas</h1>
-      <div class="linha filtro">
-        <label>Situação
-          <select id="sel-situacao">
-            <option value="concluida" selected>Concluídas</option>
-            <option value="concluida_retroativamente">Concluídas retroativamente</option>
-            <option value="atrasada">Atrasadas (pendentes)</option>
-            <option value="hoje">Hoje</option>
-            <option value="futura">Futuras</option>
-            <option value="">Todas</option>
-          </select>
-        </label>
-      </div>
-      <div class="tabela-wrap"><table id="tab-metas"></table></div>
-    </section>
-
-    <!-- ===================== CURSOS ===================== -->
-    <section id="aba-cursos" class="aba oculto">
-      <h1>Cursos</h1>
-      <div class="cartao">
-        <h2 id="titulo-form-curso">Novo curso</h2>
-        <form id="form-curso" class="form">
-          <input type="hidden" name="id" />
-          <div class="linha">
-            <label>Nome <input name="nome" required maxlength="120" /></label>
-            <label>Descrição <input name="descricao" maxlength="300" /></label>
-          </div>
-          <div class="linha">
-            <label>Início (opcional) <input type="date" name="dataInicio" /></label>
-            <label>Fim (opcional) <input type="date" name="dataFim" /></label>
-            <label>Validade (opcional) <input type="date" name="validade" /></label>
-          </div>
-          <div class="acoes">
-            <button type="submit" class="primario">Salvar</button>
-            <button type="reset">Limpar</button>
-          </div>
-        </form>
-      </div>
-      <div class="tabela-wrap"><table id="tab-cursos"></table></div>
-    </section>
-
-    <!-- ===================== DISCIPLINAS ===================== -->
-    <section id="aba-disciplinas" class="aba oculto">
-      <h1>Disciplinas</h1>
-      <div class="cartao">
-        <h2 id="titulo-form-disciplina">Nova disciplina</h2>
-        <form id="form-disciplina" class="form">
-          <input type="hidden" name="id" />
-          <div class="linha">
-            <label>Curso <select name="curso" id="sel-disc-curso" required></select></label>
-            <label>Nome <input name="nome" required maxlength="120" /></label>
-            <label>Carga horária (h) <input type="number" name="cargaHoraria" min="0" step="1" /></label>
-          </div>
-          <label>Descrição <input name="descricao" maxlength="300" /></label>
-          <div class="acoes">
-            <button type="submit" class="primario">Salvar</button>
-            <button type="reset">Limpar</button>
-          </div>
-        </form>
-      </div>
-      <div class="tabela-wrap"><table id="tab-disciplinas"></table></div>
-    </section>
-  </main>
 
   <dialog id="dlg-concluir">
     <form method="dialog" id="form-concluir">
