@@ -1,0 +1,742 @@
+openapi: 3.0.3
+info:
+  title: Gestão de Estudos - API
+  version: 1.0.0
+  description: |
+    API REST da plataforma de gestão de estudos.
+
+    Funcionalidades: cadastro de curso, cadastro de disciplina, planejamento de estudo,
+    registro de horas estudadas e metas concluídas.
+
+    **Convenções**
+    - Datas no formato `YYYY-MM-DD` (fuso horário local do servidor).
+    - O banco de dados é em memória: os dados são recriados a cada inicialização.
+    - Erros seguem o formato `{ "erro": "mensagem", "detalhes": [ ... ] }`.
+servers:
+  - url: http://localhost:3000
+    description: Servidor local
+tags:
+  - name: Cursos
+    description: Cadastro de cursos (um curso possui várias disciplinas)
+  - name: Disciplinas
+    description: Cadastro de disciplinas de um curso
+  - name: Planejamentos
+    description: Planejamento de estudo, acompanhamento e replanejamento
+  - name: Registros
+    description: Registro de horas estudadas (sessões de estudo)
+  - name: Metas
+    description: Metas diárias, metas concluídas e conclusão retroativa
+  - name: Sistema
+    description: Saúde da aplicação
+
+paths:
+  /api/health:
+    get:
+      tags: [Sistema]
+      summary: Verifica se a API e o banco estão no ar
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  banco: { type: string, example: conectado }
+
+  # ------------------------------------------------------------------ Cursos
+  /api/cursos:
+    get:
+      tags: [Cursos]
+      summary: Lista os cursos com suas disciplinas
+      responses:
+        '200':
+          description: Lista de cursos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Curso' }
+    post:
+      tags: [Cursos]
+      summary: Cadastra um curso
+      description: Os campos `dataInicio`, `dataFim` e `validade` são opcionais.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CursoEntrada' }
+            example:
+              nome: Inglês Intermediário
+              descricao: Curso de conversação e gramática
+              dataInicio: '2026-11-01'
+              dataFim: '2027-03-31'
+              validade: '2027-06-30'
+      responses:
+        '201':
+          description: Curso criado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Curso' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/cursos/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Cursos]
+      summary: Busca um curso
+      responses:
+        '200':
+          description: Curso
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Curso' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Cursos]
+      summary: Atualiza um curso
+      description: Envie string vazia ou `null` para limpar um campo opcional.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CursoEntrada' }
+      responses:
+        '200':
+          description: Curso atualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Curso' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Cursos]
+      summary: Exclui um curso e suas disciplinas
+      responses:
+        '204': { description: Excluído }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  # ------------------------------------------------------------- Disciplinas
+  /api/disciplinas:
+    get:
+      tags: [Disciplinas]
+      summary: Lista as disciplinas
+      parameters:
+        - name: curso
+          in: query
+          description: Filtra pelas disciplinas de um curso
+          schema: { type: string }
+      responses:
+        '200':
+          description: Lista de disciplinas
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Disciplina' }
+    post:
+      tags: [Disciplinas]
+      summary: Cadastra uma disciplina em um curso
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DisciplinaEntrada' }
+            example:
+              nome: Gramática
+              descricao: Tempos verbais
+              cargaHoraria: 20
+              curso: 6740f1c2a1b2c3d4e5f60718
+      responses:
+        '201':
+          description: Disciplina criada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Disciplina' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/disciplinas/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Disciplinas]
+      summary: Busca uma disciplina
+      responses:
+        '200':
+          description: Disciplina
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Disciplina' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Disciplinas]
+      summary: Atualiza uma disciplina
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DisciplinaEntrada' }
+      responses:
+        '200':
+          description: Disciplina atualizada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Disciplina' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Disciplinas]
+      summary: Exclui uma disciplina
+      responses:
+        '204': { description: Excluída }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  # ----------------------------------------------------------- Planejamentos
+  /api/planejamentos:
+    get:
+      tags: [Planejamentos]
+      summary: Lista os planejamentos
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [ativo, substituido] }
+        - name: curso
+          in: query
+          schema: { type: string }
+        - name: disciplina
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Lista de planejamentos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Planejamento' }
+    post:
+      tags: [Planejamentos]
+      summary: Cria um planejamento de estudo para um curso ou disciplina
+      description: |
+        Informe as horas que serão dedicadas por período (`horasPorPeriodo`), a
+        `periodicidade` (diario, semanal ou mensal) e como as horas se distribuem
+        pelos dias (`distribuicao`). O sistema gera uma **meta** para cada dia com estudo.
+
+        - **diario**: `horasPorPeriodo` horas todos os dias. `distribuicao` é ignorada.
+        - **semanal**: `distribuicao[].dia` = dia da semana (0 = domingo ... 6 = sábado).
+          Sem distribuição, as horas são divididas igualmente de segunda a sexta.
+        - **mensal**: `distribuicao[].dia` = dia do mês (1 a 31; dias inexistentes vão para
+          o último dia do mês). Sem distribuição, as horas são divididas igualmente
+          entre os dias úteis de cada mês.
+
+        A soma da distribuição deve ser igual a `horasPorPeriodo`. Se `dataFim` não for
+        informada, o padrão é 30 dias (diário), 4 semanas (semanal) ou 3 meses (mensal),
+        limitado ao fim do curso. Só pode haver um planejamento ativo por curso/disciplina.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PlanejamentoEntrada' }
+            examples:
+              semanal:
+                summary: Semanal com distribuição
+                value:
+                  disciplina: 6740f1c2a1b2c3d4e5f60719
+                  periodicidade: semanal
+                  horasPorPeriodo: 5
+                  distribuicao:
+                    - { dia: 2, horas: 2 }
+                    - { dia: 4, horas: 2 }
+                    - { dia: 6, horas: 1 }
+              diario:
+                summary: Diário
+                value:
+                  curso: 6740f1c2a1b2c3d4e5f60718
+                  periodicidade: diario
+                  horasPorPeriodo: 1.5
+                  dataInicio: '2026-11-18'
+                  dataFim: '2026-12-18'
+      responses:
+        '201':
+          description: Planejamento criado e metas geradas
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Planejamento' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /api/planejamentos/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Planejamentos]
+      summary: Busca um planejamento com suas metas
+      responses:
+        '200':
+          description: Planejamento
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Planejamento'
+                  - type: object
+                    properties:
+                      metas:
+                        type: array
+                        items: { $ref: '#/components/schemas/Meta' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Planejamentos]
+      summary: Exclui um planejamento, suas metas e registros
+      responses:
+        '204': { description: Excluído }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/planejamentos/{id}/replanejar:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Planejamentos]
+      summary: Refaz um planejamento (novo planejamento)
+      description: |
+        O planejamento atual passa a ter status `substituido` e é criado um novo
+        planejamento para o mesmo curso/disciplina. O histórico é preservado (metas
+        passadas e registros); metas de hoje em diante sem estudo são removidas do
+        planejamento antigo. Campos não enviados são herdados do anterior e
+        `dataInicio` padrão é hoje.
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReplanejamentoEntrada' }
+            example:
+              periodicidade: diario
+              horasPorPeriodo: 2
+      responses:
+        '201':
+          description: Planejamento refeito
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  anterior: { $ref: '#/components/schemas/Planejamento' }
+                  novo: { $ref: '#/components/schemas/Planejamento' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /api/planejamentos/{id}/metas:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Planejamentos]
+      summary: Lista as metas diárias de um planejamento
+      responses:
+        '200':
+          description: Metas
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Meta' }
+
+  /api/planejamentos/{id}/acompanhamento:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Planejamentos]
+      summary: Acompanhamento planejado x realizado de um planejamento
+      description: Indica se os estudos estão em dia, adiantados ou com pendências.
+      responses:
+        '200':
+          description: Acompanhamento
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Acompanhamento' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/acompanhamento:
+    get:
+      tags: [Planejamentos]
+      summary: Acompanhamento de todos os planejamentos ativos
+      responses:
+        '200':
+          description: Lista de acompanhamentos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Acompanhamento' }
+
+  # --------------------------------------------------------------- Registros
+  /api/registros:
+    get:
+      tags: [Registros]
+      summary: Lista os registros de estudo
+      parameters:
+        - name: planejamento
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string, enum: [em_andamento, finalizado, finalizado_automaticamente] }
+      responses:
+        '200':
+          description: Registros
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Registro' }
+
+  /api/registros/ativo:
+    get:
+      tags: [Registros]
+      summary: Retorna o registro de estudo em andamento (ou null)
+      responses:
+        '200':
+          description: Registro em andamento
+          content:
+            application/json:
+              schema:
+                nullable: true
+                allOf:
+                  - $ref: '#/components/schemas/Registro'
+
+  /api/registros/iniciar:
+    post:
+      tags: [Registros]
+      summary: Inicia o registro de estudo do dia
+      description: |
+        O tempo passa a ser contabilizado na meta de hoje do planejamento até o
+        usuário finalizar ou até atingir o limite diário planejado — nesse caso o
+        registro é finalizado automaticamente (`finalizado_automaticamente`).
+        Só é permitido um registro em andamento por vez.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [planejamento]
+              properties:
+                planejamento: { type: string, description: Id do planejamento ativo }
+      responses:
+        '201':
+          description: Registro iniciado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Registro' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /api/registros/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Registros]
+      summary: Busca um registro de estudo
+      responses:
+        '200':
+          description: Registro
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Registro' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/registros/{id}/finalizar:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Registros]
+      summary: Finaliza um registro de estudo em andamento
+      responses:
+        '200':
+          description: Registro finalizado e horas contabilizadas na meta do dia
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Registro' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  # ------------------------------------------------------------------- Metas
+  /api/metas:
+    get:
+      tags: [Metas]
+      summary: Lista metas (ex. metas concluídas)
+      parameters:
+        - name: situacao
+          in: query
+          schema:
+            type: string
+            enum: [concluida, concluida_retroativamente, atrasada, hoje, futura]
+        - name: planejamento
+          in: query
+          schema: { type: string }
+        - name: de
+          in: query
+          schema: { type: string, format: date }
+        - name: ate
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Metas
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Meta' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/metas/{id}/concluir:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    patch:
+      tags: [Metas]
+      summary: Conclui uma meta de um dia que já passou
+      description: |
+        Para quando o estudo foi feito mas não foi informado na data certa.
+        Só vale para metas anteriores a hoje e ainda não concluídas.
+        `horasEstudadas` é opcional (padrão: horas planejadas).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                horasEstudadas: { type: number, example: 1 }
+                observacao: { type: string, example: Estudei pelo livro, esqueci de registrar }
+      responses:
+        '200':
+          description: Meta concluída
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Meta' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, example: 6740f1c2a1b2c3d4e5f60718 }
+
+  responses:
+    BadRequest:
+      description: Requisição inválida
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+    NotFound:
+      description: Recurso não encontrado
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+    Conflict:
+      description: Conflito com o estado atual
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+    Unprocessable:
+      description: Regra de negócio violada
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+
+  schemas:
+    Erro:
+      type: object
+      properties:
+        erro: { type: string }
+        detalhes:
+          type: array
+          items: { type: string }
+
+    Referencia:
+      type: object
+      properties:
+        _id: { type: string }
+        nome: { type: string }
+
+    CursoEntrada:
+      type: object
+      required: [nome]
+      properties:
+        nome: { type: string }
+        descricao: { type: string }
+        dataInicio: { type: string, format: date, nullable: true }
+        dataFim: { type: string, format: date, nullable: true }
+        validade: { type: string, format: date, nullable: true }
+
+    Curso:
+      allOf:
+        - $ref: '#/components/schemas/CursoEntrada'
+        - type: object
+          properties:
+            _id: { type: string }
+            disciplinas:
+              type: array
+              items: { $ref: '#/components/schemas/Disciplina' }
+            criadoEm: { type: string, format: date-time }
+            atualizadoEm: { type: string, format: date-time }
+
+    DisciplinaEntrada:
+      type: object
+      required: [nome, curso]
+      properties:
+        nome: { type: string }
+        descricao: { type: string }
+        cargaHoraria: { type: number, nullable: true }
+        curso: { type: string, description: Id do curso }
+
+    Disciplina:
+      type: object
+      properties:
+        _id: { type: string }
+        nome: { type: string }
+        descricao: { type: string }
+        cargaHoraria: { type: number, nullable: true }
+        curso:
+          oneOf:
+            - type: string
+            - $ref: '#/components/schemas/Referencia'
+        criadoEm: { type: string, format: date-time }
+        atualizadoEm: { type: string, format: date-time }
+
+    Distribuicao:
+      type: object
+      required: [dia, horas]
+      properties:
+        dia:
+          type: integer
+          description: 'semanal: 0 (domingo) a 6 (sábado) | mensal: 1 a 31'
+        horas: { type: number }
+
+    PlanejamentoEntrada:
+      type: object
+      required: [periodicidade, horasPorPeriodo]
+      description: Informe `curso` ou `disciplina` (a disciplina define o curso automaticamente).
+      properties:
+        curso: { type: string }
+        disciplina: { type: string }
+        periodicidade: { type: string, enum: [diario, semanal, mensal] }
+        horasPorPeriodo: { type: number, description: Horas por dia, semana ou mês }
+        distribuicao:
+          type: array
+          items: { $ref: '#/components/schemas/Distribuicao' }
+        dataInicio: { type: string, format: date, description: 'Padrão: hoje' }
+        dataFim: { type: string, format: date }
+        observacao: { type: string }
+
+    ReplanejamentoEntrada:
+      type: object
+      properties:
+        periodicidade: { type: string, enum: [diario, semanal, mensal] }
+        horasPorPeriodo: { type: number }
+        distribuicao:
+          type: array
+          items: { $ref: '#/components/schemas/Distribuicao' }
+        dataInicio: { type: string, format: date }
+        dataFim: { type: string, format: date }
+        observacao: { type: string }
+
+    Planejamento:
+      type: object
+      properties:
+        _id: { type: string }
+        curso: { $ref: '#/components/schemas/Referencia' }
+        disciplina:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Referencia'
+        alvo: { type: string, enum: [curso, disciplina] }
+        periodicidade: { type: string, enum: [diario, semanal, mensal] }
+        horasPorPeriodo: { type: number }
+        distribuicao:
+          type: array
+          items: { $ref: '#/components/schemas/Distribuicao' }
+        dataInicio: { type: string, format: date }
+        dataFim: { type: string, format: date }
+        status: { type: string, enum: [ativo, substituido] }
+        substitui: { type: string, nullable: true }
+        substituidoPor: { type: string, nullable: true }
+        observacao: { type: string }
+        criadoEm: { type: string, format: date-time }
+
+    Meta:
+      type: object
+      properties:
+        _id: { type: string }
+        planejamento: { type: string }
+        data: { type: string, format: date }
+        segundosPlanejados: { type: integer }
+        segundosEstudados: { type: integer }
+        segundosRestantes: { type: integer }
+        horasPlanejadas: { type: number }
+        horasEstudadas: { type: number }
+        concluida: { type: boolean }
+        concluidaEm: { type: string, format: date-time, nullable: true }
+        conclusaoRetroativa: { type: boolean }
+        situacao:
+          type: string
+          enum: [futura, hoje, atrasada, concluida, concluida_retroativamente]
+        observacao: { type: string }
+
+    Registro:
+      type: object
+      properties:
+        _id: { type: string }
+        planejamento: { type: object }
+        meta: { type: string }
+        data: { type: string, format: date }
+        inicio: { type: string, format: date-time }
+        fim: { type: string, format: date-time, nullable: true }
+        limiteEm:
+          type: string
+          format: date-time
+          description: Momento em que o limite diário é atingido
+        segundos: { type: integer, description: Tempo contabilizado (após finalizar) }
+        minutos: { type: number }
+        segundosDecorridos: { type: integer, description: Tempo decorrido em tempo real }
+        segundosParaLimite: { type: integer }
+        status: { type: string, enum: [em_andamento, finalizado, finalizado_automaticamente] }
+
+    Acompanhamento:
+      type: object
+      properties:
+        planejamento: { $ref: '#/components/schemas/Planejamento' }
+        resumo:
+          type: object
+          properties:
+            situacao: { type: string, enum: [em_dia, com_pendencias, adiantado] }
+            horasPlanejadasTotal: { type: number }
+            horasEstudadasTotal: { type: number }
+            percentualConcluido: { type: number }
+            horasPlanejadasAteOntem: { type: number }
+            horasEstudadasAteOntem: { type: number }
+            horasPendentes: { type: number }
+            totalMetas: { type: integer }
+            metasConcluidas: { type: integer }
+            metasAtrasadas: { type: integer }
+            metasFuturas: { type: integer }
+            diasDecorridos: { type: integer }
+        hoje:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+        pendencias:
+          type: array
+          items: { $ref: '#/components/schemas/Meta' }
