@@ -48,7 +48,7 @@ A porta padrão é `3000`. Para usar outra, defina a variável `PORT` (ex.: `POR
 | --- | --- |
 | Site Web | http://localhost:3000 |
 | API REST (base) | http://localhost:3000/api |
-| Documentação Swagger (renderizada) | http://localhost:3000/api-docs |
+| Documentação Swagger (renderizada; não tem link no site) | http://localhost:3000/api-docs |
 | Arquivo YAML da especificação | http://localhost:3000/api-docs/swagger.yaml |
 | Health check | http://localhost:3000/api/health |
 
@@ -81,7 +81,7 @@ Carregados automaticamente ao iniciar (`src/seed.js`). As datas são **relativas
 
 | Nome | Início | Fim | Validade |
 | --- | --- | --- | --- |
-| Desenvolvimento Web Full Stack | hoje − 10 dias | hoje + 80 dias | hoje + 365 dias |
+| Desenvolvimento Web Full Stack | hoje − 30 dias | hoje + 90 dias | hoje + 365 dias |
 
 **Disciplinas (3)**, todas do curso acima:
 
@@ -91,13 +91,14 @@ Carregados automaticamente ao iniciar (`src/seed.js`). As datas são **relativas
 | Desenvolvimento de APIs com Node.js | 60h |
 | Banco de Dados NoSQL com MongoDB | 30h |
 
-**Planejamentos**, para demonstrar as regras:
+**Planejamentos (2)**, ambos inteiramente no passado. As metas são geradas a partir do planejamento, e **nenhuma meta é cadastrada para hoje ou para o futuro**:
 
-| Disciplina | Planejamento | Para que serve |
+| Disciplina | Planejamento | Situação |
 | --- | --- | --- |
-| Lógica de Programação com JavaScript | Diário, 1h/dia, de hoje − 5 a hoje + 24 | Tem histórico: 3 metas concluídas, 1 parcial (0,5h) e 1 não informada. Aparece **com pendências** e permite testar a conclusão retroativa. |
-| Desenvolvimento de APIs com Node.js | Semanal, 6h/semana (seg, qua e sex com 2h cada), 4 semanas | Exemplo de distribuição semanal. |
-| Banco de Dados NoSQL com MongoDB | Diário, 0,05h (3 minutos) por dia, 7 dias | Permite ver o **encerramento automático** do registro ao atingir o limite diário em poucos minutos. |
+| Lógica de Programação com JavaScript | Diário, 1h/dia, de hoje − 20 a hoje − 14 (7 metas) | **Concluído**: todas as metas foram cumpridas. |
+| Desenvolvimento de APIs com Node.js | Diário, 1h/dia, de hoje − 6 a ontem (6 metas) | **Atrasado**: 3 metas concluídas, 1 parcial (0,5h) e 2 não informadas. Serve para testar a conclusão retroativa. |
+
+A disciplina *Banco de Dados NoSQL com MongoDB* não tem planejamento. Use-a para criar o seu e testar o registro de estudo.
 
 ## Regras de negócio
 
@@ -120,7 +121,8 @@ Carregados automaticamente ao iniciar (`src/seed.js`). As datas são **relativas
 
    Só existe um registro em andamento por vez; não dá para iniciar se não houver meta hoje ou se o limite do dia já foi atingido. A meta é concluída quando as horas estudadas atingem as planejadas.
 5. **Acompanhamento.** Para cada planejamento, o sistema compara o planejado com o realizado e indica a situação:
-   - `com_pendencias`: há metas de dias anteriores não concluídas;
+   - `concluido`: todas as metas do planejamento foram cumpridas;
+   - `com_pendencias` (atrasado): há metas de dias anteriores não concluídas;
    - `em_dia`: nenhuma pendência;
    - `adiantado`: estudou mais do que o planejado até hoje.
 

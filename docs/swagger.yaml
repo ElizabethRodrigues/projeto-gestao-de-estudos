@@ -353,7 +353,7 @@ paths:
     get:
       tags: [Planejamentos]
       summary: Acompanhamento planejado x realizado de um planejamento
-      description: Indica se os estudos estão em dia, adiantados ou com pendências.
+      description: Indica se os estudos estão em dia, adiantados, atrasados (com pendências) ou concluídos.
       responses:
         '200':
           description: Acompanhamento
@@ -721,7 +721,10 @@ components:
         resumo:
           type: object
           properties:
-            situacao: { type: string, enum: [em_dia, com_pendencias, adiantado] }
+            situacao:
+              type: string
+              enum: [em_dia, com_pendencias, adiantado, concluido]
+              description: '`com_pendencias` = atrasado; `concluido` = todas as metas cumpridas'
             horasPlanejadasTotal: { type: number }
             horasEstudadasTotal: { type: number }
             percentualConcluido: { type: number }

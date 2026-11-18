@@ -270,7 +270,8 @@ async function acompanhamento(id) {
   const h = (s) => round2(s / 3600);
 
   let situacao = 'em_dia';
-  if (pendencias.length > 0) situacao = 'com_pendencias';
+  if (metas.length > 0 && metas.every((m) => m.concluida)) situacao = 'concluido';
+  else if (pendencias.length > 0) situacao = 'com_pendencias';
   else if (segEstudadosTotal > segPlanejadosPassado + (metaHoje ? metaHoje.segundosPlanejados : 0)) situacao = 'adiantado';
 
   return {
