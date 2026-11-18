@@ -114,7 +114,7 @@
 
         <div class="cartao" id="sessao-nova">
           <h2>Iniciar estudo</h2>
-          <form id="form-iniciar" class="linha">
+          <form id="form-iniciar" class="linha" autocomplete="off">
             <label>Planejamento
               <select name="planejamento" id="sel-iniciar" required></select>
             </label>
@@ -142,7 +142,7 @@
             <svg><use href="#i-refazer"/></svg>
             <span>Ajuste o que quiser e salve. O planejamento atual passa a <b>substituído</b> e fica no histórico (metas e registros já feitos não se perdem). O planejamento refeito vale a partir da data de início informada.</span>
           </p>
-          <form id="form-plano" class="form">
+          <form id="form-plano" class="form" autocomplete="off">
             <input type="hidden" name="replanejarId" />
             <div class="linha">
               <label>Curso
@@ -223,7 +223,7 @@
         </div>
         <div class="cartao">
           <h2 id="titulo-form-curso">Novo curso</h2>
-          <form id="form-curso" class="form">
+          <form id="form-curso" class="form" autocomplete="off">
             <input type="hidden" name="id" />
             <div class="linha">
               <label>Nome do curso <input name="nome" required maxlength="120" placeholder="Ex.: Desenvolvimento Web" /></label>
@@ -254,7 +254,7 @@
         </div>
         <div class="cartao">
           <h2 id="titulo-form-disciplina">Nova disciplina</h2>
-          <form id="form-disciplina" class="form">
+          <form id="form-disciplina" class="form" autocomplete="off">
             <input type="hidden" name="id" />
             <div class="linha">
               <label>Curso <select name="curso" id="sel-disc-curso" required></select></label>

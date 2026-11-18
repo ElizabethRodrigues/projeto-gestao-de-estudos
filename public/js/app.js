@@ -193,18 +193,18 @@ $('#tab-cursos').addEventListener('click', async (e) => {
   }
 });
 
+/** Preenche um select de cursos mantendo a escolha atual só se ela ainda existir. */
 function opcoesCursos(select) {
+  const atual = select.value;
   select.innerHTML = cursosCache.map((c) => `<option value="${c._id}">${esc(c.nome)}</option>`).join('');
+  select.value = cursosCache.some((c) => c._id === atual) ? atual : cursosCache[0]?._id || '';
 }
 
 // ------------------------------------------------------------ disciplinas
 let disciplinasCache = [];
 async function carregarDisciplinas() {
   [cursosCache, disciplinasCache] = await Promise.all([api('/api/cursos'), api('/api/disciplinas')]);
-  const sel = $('#sel-disc-curso');
-  const atual = sel.value;
-  opcoesCursos(sel);
-  if (atual) sel.value = atual;
+  opcoesCursos($('#sel-disc-curso'));
   tabela(
     $('#tab-disciplinas'),
     ['Disciplina', 'Curso', ''],
@@ -274,10 +274,7 @@ async function carregarPlanejamentos() {
   ]);
   const f = $('#form-plano');
   if (!f.replanejarId.value) {
-    const sel = $('#sel-plano-curso');
-    const atual = sel.value;
-    opcoesCursos(sel);
-    if (atual) sel.value = atual;
+    opcoesCursos($('#sel-plano-curso'));
     atualizarDisciplinasPlano();
     if (!f.dataInicio.value) f.dataInicio.value = hojeKey();
   }
@@ -510,7 +507,11 @@ async function carregarPainel() {
           <div class="kpi"><b>${r.metasAtrasadas}</b><small>pendências</small></div>
           <div class="kpi"><b>${horas(r.horasPendentes)}</b><small>horas pendentes</small></div>
         </div>
-        <div><b>Hoje:</b> ${hoje ? `${horas(hoje.horasEstudadas)} de ${horas(hoje.horasPlanejadas)} ${selo(hoje.situacao)}` : 'sem estudo planejado'}</div>
+        ${
+          r.situacao === 'concluido'
+            ? ''
+            : `<div><b>Hoje:</b> ${hoje ? `${horas(hoje.horasEstudadas)} de ${horas(hoje.horasPlanejadas)} ${selo(hoje.situacao)}` : 'sem estudo planejado'}</div>`
+        }
         ${
           pendencias.length
             ? `<ul class="pend">${pendencias
