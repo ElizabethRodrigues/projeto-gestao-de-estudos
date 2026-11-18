@@ -144,7 +144,7 @@ async function carregarCursos() {
         <td><b>${esc(c.nome)}</b><br><small class="dica">${esc(c.descricao)}</small></td>
         <td>${c.dataInicio || c.dataFim ? `${dataBR(c.dataInicio)} a ${dataBR(c.dataFim)}` : '—'}</td>
         <td>${c.validade ? dataBR(c.validade) : '—'}</td>
-        <td>${c.disciplinas.map((d) => esc(d.nome)).join('<br>') || '—'}</td>
+        <td>${(c.disciplinas || []).map((d) => esc(d.nome)).join('<br>') || '—'}</td>
         <td class="acoes">
           <button class="mini" data-editar-curso="${c._id}">Editar</button>
           <button class="mini perigo" data-excluir-curso="${c._id}">Excluir</button>
@@ -292,10 +292,12 @@ async function carregarPlanejamentos() {
         <td><b>${esc(nomeAlvo(p))}</b>${p.disciplina ? `<br><small class="dica">${esc(p.curso?.nome)}</small>` : ''}${
           p.observacao ? `<br><small class="dica">${esc(p.observacao)}</small>` : ''
         }</td>
-        <td>${PERIODICIDADE[p.periodicidade]} · ${p.duracao} ${
-          p.periodicidade === 'semanal' ? (p.duracao > 1 ? 'semanas' : 'semana') : p.duracao > 1 ? 'meses' : 'mês'
+        <td>${PERIODICIDADE[p.periodicidade] || esc(p.periodicidade)}${
+          p.duracao
+            ? ` · ${p.duracao} ${p.periodicidade === 'semanal' ? (p.duracao > 1 ? 'semanas' : 'semana') : p.duracao > 1 ? 'meses' : 'mês'}`
+            : ''
         }</td>
-        <td>${horas(p.horasPorDia)}/dia<br><small class="dica">${p.diasSemana.map((d) => DIAS_SEMANA[d]).join(', ')}</small></td>
+        <td>${horas(p.horasPorDia)}/dia<br><small class="dica">${(p.diasSemana || []).map((d) => DIAS_SEMANA[d]).join(', ') || '—'}</small></td>
         <td>${dataBR(p.dataInicio)} a ${dataBR(p.dataFim)}</td>
         <td>${selo(p.status)}</td>
         <td class="acoes">
@@ -421,7 +423,7 @@ $('#tab-planos').addEventListener('click', async (e) => {
     f.horasPorDia.value = p.horasPorDia;
     f.dataInicio.value = hojeKey();
     f.observacao.value = p.observacao || '';
-    renderDiasSemana(p.diasSemana);
+    renderDiasSemana(p.diasSemana?.length ? p.diasSemana : undefined);
     atualizarResumoPlano();
     $('#titulo-form-plano').textContent = `Refazer planejamento: ${nomeAlvo(p)}`;
     $('#btn-salvar-plano').textContent = 'Salvar novo planejamento';
@@ -483,7 +485,7 @@ async function carregarPainel() {
           <div><h3>${esc(nomeAlvo(p))}</h3>${p.disciplina ? `<span class="curso">${esc(p.curso?.nome)}</span>` : ''}</div>
           ${selo(r.situacao)}
         </div>
-        <small class="dica" style="margin:0">${PERIODICIDADE[p.periodicidade]} · ${horas(p.horasPorDia)}/dia · ${dataBR(p.dataInicio)} a ${dataBR(p.dataFim)}</small>
+        <small class="dica" style="margin:0">${PERIODICIDADE[p.periodicidade] || esc(p.periodicidade)} · ${horas(p.horasPorDia)}/dia ·${dataBR(p.dataInicio)} a ${dataBR(p.dataFim)}</small>
         <div class="barra" title="${pct}% do planejamento"><span style="width:${pct}%"></span></div>
         <small class="dica" style="margin:0">${horas(r.horasEstudadasTotal)} de ${horas(r.horasPlanejadasTotal)} (${r.percentualConcluido}%)</small>
         <div class="kpis">
