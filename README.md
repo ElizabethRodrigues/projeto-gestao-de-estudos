@@ -49,7 +49,7 @@ A porta padrão é `3000`. Para usar outra, defina a variável `PORT` (ex.: `POR
 | O quê | URL |
 | --- | --- |
 | Site Web | http://localhost:3000 |
-| API REST (base) | http://localhost:3000/api |
+| API REST (raiz: nome, versão e lista de rotas) | http://localhost:3000/api |
 | Documentação Swagger (renderizada; não tem link no site) | http://localhost:3000/api-docs |
 | Arquivo YAML da especificação | http://localhost:3000/api-docs/swagger.yaml |
 | Health check | http://localhost:3000/api/health |
