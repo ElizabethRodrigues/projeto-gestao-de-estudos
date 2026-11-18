@@ -2,7 +2,7 @@ const Curso = require('./models/Curso');
 const Disciplina = require('./models/Disciplina');
 const Planejamento = require('./models/Planejamento');
 const Meta = require('./models/Meta');
-const { gerarMetas } = require('./services/planejamentoService');
+const { gerarMetas, calcularDataFim } = require('./services/planejamentoService');
 const d = require('./utils/dates');
 
 /**
@@ -16,68 +16,60 @@ async function seed() {
   const hoje = d.today();
 
   const curso = await Curso.create({
-    nome: 'Desenvolvimento Web Full Stack',
-    descricao: 'Formação completa em desenvolvimento web com JavaScript, Node.js e MongoDB.',
+    nome: 'Desenvolvimento Web',
+    descricao: 'Fundamentos para construir sites e aplicações para a Web.',
     dataInicio: d.addDays(hoje, -30),
     dataFim: d.addDays(hoje, 90),
     validade: d.addDays(hoje, 365),
   });
 
-  const [js, node] = await Disciplina.insertMany([
+  const [introducao, logica] = await Disciplina.insertMany([
     {
-      nome: 'Lógica de Programação com JavaScript',
-      descricao: 'Variáveis, estruturas de controle, funções, arrays e objetos.',
-      cargaHoraria: 40,
+      nome: 'Introdução ao Desenvolvimento Web',
+      descricao: 'Como a Web funciona: navegadores, servidores, HTTP e o papel do front-end e do back-end.',
       curso: curso._id,
     },
     {
-      nome: 'Desenvolvimento de APIs com Node.js',
-      descricao: 'Express, rotas, middlewares, REST e documentação com Swagger.',
-      cargaHoraria: 60,
+      nome: 'Lógica de Programação',
+      descricao: 'Algoritmos, variáveis, condicionais, laços e funções.',
       curso: curso._id,
     },
     {
-      nome: 'Banco de Dados NoSQL com MongoDB',
-      descricao: 'Modelagem de documentos, consultas, índices e Mongoose.',
-      cargaHoraria: 30,
+      nome: 'HTML5 e Semântica Web',
+      descricao: 'Estrutura de páginas com HTML5, tags semânticas e acessibilidade.',
       curso: curso._id,
     },
   ]);
 
-  // 1) Planejamento CONCLUÍDO: diário, 1h/dia, de hoje-20 a hoje-14, todas as metas cumpridas
+  // 1) Planejamento CONCLUÍDO: semanal, 1h/dia de segunda a sexta, há 3 semanas; todas as metas cumpridas
   await criarComHistorico(
     {
       curso: curso._id,
-      disciplina: js._id,
-      periodicidade: 'diario',
-      horasPorPeriodo: 1,
-      dataInicio: d.addDays(hoje, -20),
-      dataFim: d.addDays(hoje, -14),
+      disciplina: introducao._id,
+      periodicidade: 'semanal',
+      horasPorDia: 1,
+      diasSemana: [1, 2, 3, 4, 5],
+      duracao: 1,
+      dataInicio: d.addDays(hoje, -21),
       observacao: 'Dados de teste: planejamento concluído (todas as metas cumpridas).',
     },
-    () => 1 // 100% das horas planejadas em todos os dias
+    () => 1
   );
 
-  // 2) Planejamento ATRASADO: diário, 1h/dia, de hoje-6 a ontem, com metas não cumpridas
-  const historicoAtrasado = {
-    [d.addDays(hoje, -6)]: 1, // concluída
-    [d.addDays(hoje, -5)]: 1, // concluída
-    [d.addDays(hoje, -4)]: 0.5, // parcial (pendente)
-    [d.addDays(hoje, -3)]: 0, // não informada (pendente)
-    [d.addDays(hoje, -2)]: 1, // concluída
-    [d.addDays(hoje, -1)]: 0, // não informada (pendente)
-  };
+  // 2) Planejamento ATRASADO: semanal, 1,5h/dia de segunda a sexta, nos últimos 7 dias (até ontem)
+  const historicoAtrasado = [1, 1, 0.5, 0, 0]; // 2 concluídas, 1 parcial e 2 não informadas
   await criarComHistorico(
     {
       curso: curso._id,
-      disciplina: node._id,
-      periodicidade: 'diario',
-      horasPorPeriodo: 1,
-      dataInicio: d.addDays(hoje, -6),
-      dataFim: d.addDays(hoje, -1),
+      disciplina: logica._id,
+      periodicidade: 'semanal',
+      horasPorDia: 1.5,
+      diasSemana: [1, 2, 3, 4, 5],
+      duracao: 1,
+      dataInicio: d.addDays(hoje, -7),
       observacao: 'Dados de teste: planejamento atrasado (metas pendentes em dias anteriores).',
     },
-    (data) => historicoAtrasado[data] || 0
+    (_, i) => historicoAtrasado[i] ?? 0
   );
 
   console.log('[seed] 1 curso, 3 disciplinas e 2 planejamentos de teste (1 concluído e 1 atrasado) criados');
@@ -85,9 +77,12 @@ async function seed() {
 
 /** Cria o planejamento, gera suas metas e aplica o percentual estudado de cada dia. */
 async function criarComHistorico(dados, fracaoEstudada) {
-  const plano = await Planejamento.create(dados);
-  const metas = gerarMetas(plano).map((meta) => {
-    const segundos = Math.round(meta.segundosPlanejados * fracaoEstudada(meta.data));
+  const plano = await Planejamento.create({
+    ...dados,
+    dataFim: calcularDataFim(dados.periodicidade, dados.dataInicio, dados.duracao),
+  });
+  const metas = gerarMetas(plano).map((meta, i) => {
+    const segundos = Math.round(meta.segundosPlanejados * fracaoEstudada(meta.data, i));
     const concluida = segundos >= meta.segundosPlanejados;
     return {
       ...meta,

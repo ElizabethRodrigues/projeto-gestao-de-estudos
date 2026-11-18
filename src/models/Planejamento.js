@@ -1,21 +1,16 @@
 const { Schema, model } = require('mongoose');
 
-const distribuicaoSchema = new Schema(
-  {
-    // semanal: 0 (domingo) a 6 (sábado) | mensal: 1 a 31 (dia do mês)
-    dia: { type: Number, required: true },
-    horas: { type: Number, required: true, min: 0 },
-  },
-  { _id: false }
-);
-
 const planejamentoSchema = new Schema(
   {
     curso: { type: Schema.Types.ObjectId, ref: 'Curso', required: true },
     disciplina: { type: Schema.Types.ObjectId, ref: 'Disciplina', default: null },
-    periodicidade: { type: String, enum: ['diario', 'semanal', 'mensal'], required: true },
-    horasPorPeriodo: { type: Number, required: true, min: 0.01 },
-    distribuicao: { type: [distribuicaoSchema], default: [] },
+    // Regra 3: horas por dia + periodicidade semanal ou mensal
+    periodicidade: { type: String, enum: ['semanal', 'mensal'], required: true },
+    horasPorDia: { type: Number, required: true, min: 0.01, max: 24 },
+    // Dias da semana em que haverá estudo: 0 (domingo) a 6 (sábado)
+    diasSemana: { type: [Number], default: [1, 2, 3, 4, 5] },
+    // Quantidade de semanas ou meses do planejamento
+    duracao: { type: Number, default: 1, min: 1 },
     dataInicio: { type: String, required: true },
     dataFim: { type: String, required: true },
     status: { type: String, enum: ['ativo', 'substituido'], default: 'ativo' },

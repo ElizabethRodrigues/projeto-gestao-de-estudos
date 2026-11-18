@@ -10,7 +10,7 @@ const SITUACOES = {
   atrasada: ['Atrasada', 'bad'],
   concluida: ['Concluída', 'ok'],
   concluida_retroativamente: ['Concluída (retroativa)', 'ok'],
-  em_dia: ['Em dia', 'ok'],
+  em_dia: ['Em dia', 'info'],
   adiantado: ['Adiantado', 'ok'],
   com_pendencias: ['Atrasado', 'bad'],
   concluido: ['Concluído', 'ok'],
@@ -20,7 +20,15 @@ const SITUACOES = {
   ativo: ['Ativo', 'ok'],
   substituido: ['Substituído', 'warn'],
 };
-const PERIODICIDADE = { diario: 'Diário', semanal: 'Semanal', mensal: 'Mensal' };
+const PERIODICIDADE = { semanal: 'Semanal', mensal: 'Mensal' };
+const FRASES = [
+  'Pequenos passos todos os dias levam a grandes conquistas.',
+  'Constância vale mais que intensidade: siga o seu planejamento.',
+  'Uma meta por dia. Um dia de cada vez.',
+  'O melhor momento para estudar é agora.',
+  'Revise, pratique e registre: o progresso aparece.',
+];
+const icone = (id) => `<svg><use href="#i-${id}"/></svg>`;
 
 // ------------------------------------------------------------ utilidades
 async function api(url, opcoes = {}) {
@@ -62,11 +70,13 @@ const relogio = (s) => {
   const ss = String(s % 60).padStart(2, '0');
   return `${hh}:${mm}:${ss}`;
 };
-const nomePlano = (p) =>
-  p ? `${p.disciplina?.nome || p.curso?.nome || 'Curso'}${p.disciplina ? ` · ${p.curso?.nome || ''}` : ' (curso inteiro)'}` : '—';
-const hojeKey = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const nomeAlvo = (p) => (p ? p.disciplina?.nome || `${p.curso?.nome || 'Curso'} (curso inteiro)` : '—');
+const nomePlano = (p) => (p ? `${nomeAlvo(p)}${p.disciplina ? ` · ${p.curso?.nome || ''}` : ''}` : '—');
+const toKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const hojeKey = () => toKey(new Date());
+const fromKey = (k) => {
+  const [y, m, d] = k.split('-').map(Number);
+  return new Date(y, m - 1, d);
 };
 const tabela = (el, cabecalho, linhas, vazio) => {
   el.innerHTML = `<thead><tr>${cabecalho.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${
@@ -75,17 +85,51 @@ const tabela = (el, cabecalho, linhas, vazio) => {
 };
 const formDados = (form) => Object.fromEntries(new FormData(form).entries());
 
-// ------------------------------------------------------------ navegação
+// ------------------------------------------------------------ tema claro / escuro
+function lerTemaSalvo() {
+  try {
+    return localStorage.getItem('tema');
+  } catch {
+    return null;
+  }
+}
+function aplicarTema(tema) {
+  document.documentElement.dataset.theme = tema === 'escuro' ? 'dark' : 'light';
+  $('#txt-tema').textContent = tema === 'escuro' ? 'Tema claro' : 'Tema escuro';
+  $('#btn-tema').setAttribute('aria-label', tema === 'escuro' ? 'Mudar para o tema claro' : 'Mudar para o tema escuro');
+}
+let temaAtual = lerTemaSalvo() || (matchMedia('(prefers-color-scheme: dark)').matches ? 'escuro' : 'claro');
+aplicarTema(temaAtual);
+$('#btn-tema').addEventListener('click', () => {
+  temaAtual = temaAtual === 'escuro' ? 'claro' : 'escuro';
+  aplicarTema(temaAtual);
+  try {
+    localStorage.setItem('tema', temaAtual);
+  } catch {}
+});
+
+// ------------------------------------------------------------ navegação lateral
 const carregadores = {};
 function abrirAba(nome) {
   $$('#menu button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === nome));
   $$('.aba').forEach((s) => s.classList.toggle('oculto', s.id !== `aba-${nome}`));
   history.replaceState(null, '', `#${nome}`);
-  carregadores[nome]?.().catch((e) => avisar(e.message, 'erro'));
+  $('#lateral').classList.remove('aberta');
+  $('#btn-menu').setAttribute('aria-expanded', 'false');
+  window.scrollTo({ top: 0 });
+  return (carregadores[nome]?.() || Promise.resolve()).catch((e) => avisar(e.message, 'erro'));
 }
 $('#menu').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-aba]');
   if (b) abrirAba(b.dataset.aba);
+});
+window.addEventListener('hashchange', () => {
+  const aba = location.hash.slice(1);
+  if (carregadores[aba] && $(`#aba-${aba}`).classList.contains('oculto')) abrirAba(aba);
+});
+$('#btn-menu').addEventListener('click', () => {
+  const aberta = $('#lateral').classList.toggle('aberta');
+  $('#btn-menu').setAttribute('aria-expanded', String(aberta));
 });
 
 // ------------------------------------------------------------ cursos
@@ -149,10 +193,8 @@ $('#tab-cursos').addEventListener('click', async (e) => {
   }
 });
 
-function opcoesCursos(select, { vazio } = {}) {
-  select.innerHTML =
-    (vazio ? `<option value="">${vazio}</option>` : '') +
-    cursosCache.map((c) => `<option value="${c._id}">${esc(c.nome)}</option>`).join('');
+function opcoesCursos(select) {
+  select.innerHTML = cursosCache.map((c) => `<option value="${c._id}">${esc(c.nome)}</option>`).join('');
 }
 
 // ------------------------------------------------------------ disciplinas
@@ -165,12 +207,11 @@ async function carregarDisciplinas() {
   if (atual) sel.value = atual;
   tabela(
     $('#tab-disciplinas'),
-    ['Disciplina', 'Curso', 'Carga horária', ''],
+    ['Disciplina', 'Curso', ''],
     disciplinasCache.map(
       (d) => `<tr>
         <td><b>${esc(d.nome)}</b><br><small class="dica">${esc(d.descricao)}</small></td>
         <td>${esc(d.curso?.nome)}</td>
-        <td>${d.cargaHoraria != null ? horas(d.cargaHoraria) : '—'}</td>
         <td class="acoes">
           <button class="mini" data-editar-disc="${d._id}">Editar</button>
           <button class="mini perigo" data-excluir-disc="${d._id}">Excluir</button>
@@ -207,7 +248,6 @@ $('#tab-disciplinas').addEventListener('click', async (e) => {
     const f = $('#form-disciplina');
     f.nome.value = d.nome;
     f.descricao.value = d.descricao || '';
-    f.cargaHoraria.value = d.cargaHoraria ?? '';
     f.curso.value = d.curso?._id || d.curso;
     f.id.value = d._id;
     $('#titulo-form-disciplina').textContent = `Editar disciplina: ${d.nome}`;
@@ -232,24 +272,30 @@ async function carregarPlanejamentos() {
     api('/api/disciplinas'),
     api('/api/planejamentos'),
   ]);
-  if (!$('#form-plano').replanejarId.value) {
+  const f = $('#form-plano');
+  if (!f.replanejarId.value) {
     const sel = $('#sel-plano-curso');
     const atual = sel.value;
     opcoesCursos(sel);
     if (atual) sel.value = atual;
     atualizarDisciplinasPlano();
+    if (!f.dataInicio.value) f.dataInicio.value = hojeKey();
   }
-  renderDistribuicao();
+  atualizarResumoPlano();
   const mostrarSubst = $('#chk-substituidos').checked;
   const lista = planosCache.filter((p) => mostrarSubst || p.status === 'ativo');
   tabela(
     $('#tab-planos'),
-    ['Alvo', 'Periodicidade', 'Distribuição', 'Período', 'Status', ''],
+    ['Disciplina / curso', 'Periodicidade', 'Horas e dias', 'Período', 'Status', ''],
     lista.map(
       (p) => `<tr>
-        <td><b>${esc(nomePlano(p))}</b>${p.observacao ? `<br><small class="dica">${esc(p.observacao)}</small>` : ''}</td>
-        <td>${PERIODICIDADE[p.periodicidade]} · ${horas(p.horasPorPeriodo)}${p.periodicidade === 'diario' ? '/dia' : p.periodicidade === 'semanal' ? '/semana' : '/mês'}</td>
-        <td>${descreverDistribuicao(p)}</td>
+        <td><b>${esc(nomeAlvo(p))}</b>${p.disciplina ? `<br><small class="dica">${esc(p.curso?.nome)}</small>` : ''}${
+          p.observacao ? `<br><small class="dica">${esc(p.observacao)}</small>` : ''
+        }</td>
+        <td>${PERIODICIDADE[p.periodicidade]} · ${p.duracao} ${
+          p.periodicidade === 'semanal' ? (p.duracao > 1 ? 'semanas' : 'semana') : p.duracao > 1 ? 'meses' : 'mês'
+        }</td>
+        <td>${horas(p.horasPorDia)}/dia<br><small class="dica">${p.diasSemana.map((d) => DIAS_SEMANA[d]).join(', ')}</small></td>
         <td>${dataBR(p.dataInicio)} a ${dataBR(p.dataFim)}</td>
         <td>${selo(p.status)}</td>
         <td class="acoes">
@@ -262,14 +308,6 @@ async function carregarPlanejamentos() {
 }
 carregadores.planejamentos = carregarPlanejamentos;
 
-function descreverDistribuicao(p) {
-  if (p.periodicidade === 'diario') return `${horas(p.horasPorPeriodo)} todos os dias`;
-  if (!p.distribuicao.length) return 'Dividido entre os dias úteis';
-  return p.distribuicao
-    .map((d) => `${p.periodicidade === 'semanal' ? DIAS_SEMANA[d.dia] : `Dia ${d.dia}`}: ${horas(d.horas)}`)
-    .join(', ');
-}
-
 function atualizarDisciplinasPlano() {
   const curso = $('#sel-plano-curso').value;
   $('#sel-plano-disciplina').innerHTML =
@@ -281,52 +319,58 @@ function atualizarDisciplinasPlano() {
 }
 $('#sel-plano-curso').addEventListener('change', atualizarDisciplinasPlano);
 
-function renderDistribuicao(valores = {}) {
-  const per = $('#sel-periodicidade').value;
-  $('#lbl-horas').textContent = { diario: 'Horas por dia', semanal: 'Horas por semana', mensal: 'Horas por mês' }[per];
-  const fs = $('#distribuicao');
-  fs.classList.toggle('oculto', per === 'diario');
-  const campos = $('#dist-campos');
-  if (per === 'semanal') {
-    campos.innerHTML = DIAS_SEMANA.map(
-      (nome, i) => `<label>${nome}<input type="number" min="0" max="24" step="0.25" data-dia="${i}" value="${valores[i] ?? ''}" /></label>`
-    ).join('');
-    $('#dist-dica').textContent = 'Deixe em branco para dividir igualmente de segunda a sexta.';
-  } else if (per === 'mensal') {
-    campos.innerHTML = Array.from({ length: 31 }, (_, i) => i + 1)
-      .map((d) => `<label>Dia ${d}<input type="number" min="0" max="24" step="0.25" data-dia="${d}" value="${valores[d] ?? ''}" /></label>`)
-      .join('');
-    $('#dist-dica').textContent = 'Deixe em branco para dividir igualmente entre os dias úteis de cada mês.';
-  } else {
-    campos.innerHTML = '';
+function renderDiasSemana(selecionados = [1, 2, 3, 4, 5]) {
+  $('#dias-semana').innerHTML = [1, 2, 3, 4, 5, 6, 0]
+    .map(
+      (i) => `<label class="chip"><input type="checkbox" value="${i}" ${selecionados.includes(i) ? 'checked' : ''} /><span>${DIAS_SEMANA[i]}</span></label>`
+    )
+    .join('');
+}
+renderDiasSemana();
+const lerDiasSemana = () => $$('#dias-semana input:checked').map((i) => Number(i.value));
+
+// Mesma regra do servidor: semanal = N semanas; mensal = N meses a partir do início
+function calcularFim(periodicidade, inicio, duracao) {
+  const d = fromKey(inicio);
+  if (periodicidade === 'semanal') d.setDate(d.getDate() + 7 * duracao - 1);
+  else {
+    d.setMonth(d.getMonth() + duracao);
+    d.setDate(d.getDate() - 1);
   }
-  atualizarSoma();
+  return toKey(d);
 }
-function lerDistribuicao() {
-  return $$('#dist-campos input')
-    .filter((i) => Number(i.value) > 0)
-    .map((i) => ({ dia: Number(i.dataset.dia), horas: Number(i.value) }));
+function atualizarResumoPlano() {
+  const f = $('#form-plano');
+  const per = f.periodicidade.value;
+  $('#lbl-duracao').textContent = per === 'semanal' ? 'Duração (semanas)' : 'Duração (meses)';
+  f.duracao.max = per === 'semanal' ? 52 : 12;
+  const inicio = f.dataInicio.value || hojeKey();
+  const duracao = Math.max(1, parseInt(f.duracao.value, 10) || 1);
+  const hpd = Number(f.horasPorDia.value) || 0;
+  const dias = lerDiasSemana();
+  const fim = calcularFim(per, inicio, duracao);
+  let qtd = 0;
+  for (let d = fromKey(inicio); toKey(d) <= fim; d.setDate(d.getDate() + 1)) if (dias.includes(d.getDay())) qtd++;
+  $('#resumo-plano').innerHTML = `${icone('calendario')}
+    <span>Termina em <b>${dataBR(fim)}</b></span>
+    <span><b>${qtd}</b> dias de estudo</span>
+    <span><b>${horas(qtd * hpd)}</b> no total</span>`;
 }
-function atualizarSoma() {
-  const soma = lerDistribuicao().reduce((a, d) => a + d.horas, 0);
-  const alvo = Number($('#form-plano').horasPorPeriodo.value || 0);
-  $('#soma-dist').textContent = soma ? `— distribuído ${horas(soma)} de ${horas(alvo)}` : '';
-  $('#soma-dist').style.color = soma && Math.abs(soma - alvo) > 0.01 ? 'var(--bad)' : '';
-}
-$('#sel-periodicidade').addEventListener('change', () => renderDistribuicao());
-$('#dist-campos').addEventListener('input', atualizarSoma);
-$('#form-plano').horasPorPeriodo.addEventListener('input', atualizarSoma);
+$('#form-plano').addEventListener('input', atualizarResumoPlano);
+$('#form-plano').addEventListener('change', atualizarResumoPlano);
 
 function sairReplanejamento() {
   const f = $('#form-plano');
   f.reset();
   f.replanejarId.value = '';
+  f.dataInicio.value = hojeKey();
   $('#sel-plano-curso').disabled = false;
   $('#sel-plano-disciplina').disabled = false;
   $('#titulo-form-plano').textContent = 'Novo planejamento';
   $('#btn-salvar-plano').textContent = 'Criar planejamento';
   $('#btn-cancelar-replano').classList.add('oculto');
-  renderDistribuicao();
+  renderDiasSemana();
+  atualizarResumoPlano();
 }
 $('#btn-cancelar-replano').addEventListener('click', sairReplanejamento);
 
@@ -335,12 +379,13 @@ $('#form-plano').addEventListener('submit', async (e) => {
   const f = e.target;
   const corpo = {
     periodicidade: f.periodicidade.value,
-    horasPorPeriodo: Number(f.horasPorPeriodo.value),
-    distribuicao: f.periodicidade.value === 'diario' ? [] : lerDistribuicao(),
+    duracao: Number(f.duracao.value),
+    horasPorDia: Number(f.horasPorDia.value),
+    diasSemana: lerDiasSemana(),
     observacao: f.observacao.value,
   };
+  if (!corpo.diasSemana.length) return avisar('Escolha pelo menos um dia de estudo', 'erro');
   if (f.dataInicio.value) corpo.dataInicio = f.dataInicio.value;
-  if (f.dataFim.value) corpo.dataFim = f.dataFim.value;
   try {
     if (f.replanejarId.value) {
       await api(`/api/planejamentos/${f.replanejarId.value}/replanejar`, { method: 'POST', body: corpo });
@@ -372,12 +417,13 @@ $('#tab-planos').addEventListener('click', async (e) => {
     $('#sel-plano-curso').disabled = true;
     $('#sel-plano-disciplina').disabled = true;
     f.periodicidade.value = p.periodicidade;
-    f.horasPorPeriodo.value = p.horasPorPeriodo;
+    f.duracao.value = p.duracao;
+    f.horasPorDia.value = p.horasPorDia;
     f.dataInicio.value = hojeKey();
-    f.dataFim.value = '';
     f.observacao.value = p.observacao || '';
-    renderDistribuicao(Object.fromEntries(p.distribuicao.map((d) => [d.dia, d.horas])));
-    $('#titulo-form-plano').textContent = `Refazer planejamento: ${nomePlano(p)}`;
+    renderDiasSemana(p.diasSemana);
+    atualizarResumoPlano();
+    $('#titulo-form-plano').textContent = `Refazer planejamento: ${nomeAlvo(p)}`;
     $('#btn-salvar-plano').textContent = 'Salvar novo planejamento';
     $('#btn-cancelar-replano').classList.remove('oculto');
     f.scrollIntoView({ behavior: 'smooth' });
@@ -394,37 +440,63 @@ $('#tab-planos').addEventListener('click', async (e) => {
 });
 $('#chk-substituidos').addEventListener('change', carregarPlanejamentos);
 
-// ------------------------------------------------------------ acompanhamento
+// ------------------------------------------------------------ início / acompanhamento
+function renderHero() {
+  const agora = new Date();
+  const h = agora.getHours();
+  $('#hero-saudacao').textContent = `${h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'}! Bons estudos.`;
+  const data = agora.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+  $('#hero-data').textContent = data.charAt(0).toUpperCase() + data.slice(1);
+  $('#hero-frase').textContent = FRASES[agora.getDate() % FRASES.length];
+}
+
 async function carregarPainel() {
+  renderHero();
   const itens = await api('/api/acompanhamento');
+
+  const tot = itens.reduce(
+    (a, { resumo: r }) => ({
+      concluidas: a.concluidas + r.metasConcluidas,
+      pend: a.pend + r.metasAtrasadas,
+      horas: a.horas + r.horasEstudadasTotal,
+    }),
+    { concluidas: 0, pend: 0, horas: 0 }
+  );
+  const kpi = (ic, cor, valor, rotulo) =>
+    `<div class="kpi-card"><span class="ic ${cor}">${icone(ic)}</span><div><b>${valor}</b><small>${rotulo}</small></div></div>`;
+  $('#kpis-home').innerHTML =
+    kpi('calendario', 'roxo', itens.length, 'planejamentos ativos') +
+    kpi('check', 'verde', tot.concluidas, 'metas concluídas') +
+    kpi('alerta', 'vermelho', tot.pend, 'metas pendentes') +
+    kpi('chama', 'amarelo', horas(tot.horas), 'horas estudadas');
+
   const el = $('#painel-lista');
   if (!itens.length) {
-    el.innerHTML = '<div class="cartao">Nenhum planejamento ativo. Crie um na aba <b>Planejamentos</b>.</div>';
+    el.innerHTML = `<div class="cartao vazio-grande">${icone('livro')}<p>Nenhum planejamento ativo ainda.<br>Clique em <b>Adicionar tarefa</b> para planejar seus estudos.</p></div>`;
     return;
   }
   el.innerHTML = itens
     .map(({ planejamento: p, resumo: r, hoje, pendencias }) => {
       const pct = Math.min(100, r.percentualConcluido);
-      return `<div class="cartao">
-        <div style="display:flex;justify-content:space-between;gap:8px;align-items:start">
-          <h2 style="margin:0">${esc(nomePlano(p))}</h2>${selo(r.situacao)}
+      return `<div class="cartao cartao-plano ${r.situacao}">
+        <div class="cab">
+          <div><h3>${esc(nomeAlvo(p))}</h3>${p.disciplina ? `<span class="curso">${esc(p.curso?.nome)}</span>` : ''}</div>
+          ${selo(r.situacao)}
         </div>
-        <small class="dica">${PERIODICIDADE[p.periodicidade]} · ${dataBR(p.dataInicio)} a ${dataBR(p.dataFim)}</small>
+        <small class="dica" style="margin:0">${PERIODICIDADE[p.periodicidade]} · ${horas(p.horasPorDia)}/dia · ${dataBR(p.dataInicio)} a ${dataBR(p.dataFim)}</small>
         <div class="barra" title="${pct}% do planejamento"><span style="width:${pct}%"></span></div>
-        <small class="dica">${horas(r.horasEstudadasTotal)} de ${horas(r.horasPlanejadasTotal)} (${r.percentualConcluido}%)</small>
+        <small class="dica" style="margin:0">${horas(r.horasEstudadasTotal)} de ${horas(r.horasPlanejadasTotal)} (${r.percentualConcluido}%)</small>
         <div class="kpis">
           <div class="kpi"><b>${r.metasConcluidas}/${r.totalMetas}</b><small>metas concluídas</small></div>
           <div class="kpi"><b>${r.metasAtrasadas}</b><small>pendências</small></div>
           <div class="kpi"><b>${horas(r.horasPendentes)}</b><small>horas pendentes</small></div>
         </div>
-        <div><b>Hoje:</b> ${
-          hoje ? `${horas(hoje.horasEstudadas)} de ${horas(hoje.horasPlanejadas)} ${selo(hoje.situacao)}` : 'sem estudo planejado'
-        }</div>
+        <div><b>Hoje:</b> ${hoje ? `${horas(hoje.horasEstudadas)} de ${horas(hoje.horasPlanejadas)} ${selo(hoje.situacao)}` : 'sem estudo planejado'}</div>
         ${
           pendencias.length
             ? `<ul class="pend">${pendencias
                 .map(
-                  (m) => `<li><span>${dataBR(m.data)} · ${horas(m.horasEstudadas)} de ${horas(m.horasPlanejadas)}</span>
+                  (m) => `<li><span>${icone('alerta')}${dataBR(m.data)} · ${horas(m.horasEstudadas)} de ${horas(m.horasPlanejadas)}</span>
                   <button class="mini" data-concluir="${m._id}" data-data="${m.data}" data-horas="${m.horasPlanejadas}">Marcar concluída</button></li>`
                 )
                 .join('')}</ul>`
@@ -435,6 +507,14 @@ async function carregarPainel() {
     .join('');
 }
 carregadores.painel = carregarPainel;
+
+// Botão da tela inicial: abre o formulário de novo planejamento (tarefa de estudo)
+$('#btn-adicionar-tarefa').addEventListener('click', async () => {
+  await abrirAba('planejamentos');
+  if ($('#form-plano').replanejarId.value) sairReplanejamento();
+  $('#form-plano').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('#sel-plano-curso').focus();
+});
 
 // Regra 6: concluir meta passada
 let metaParaConcluir = null;
@@ -535,7 +615,7 @@ async function mostrarMetaHoje() {
   const id = $('#sel-iniciar').value;
   const info = $('#info-hoje');
   if (!id) {
-    info.textContent = 'Nenhum planejamento ativo.';
+    info.textContent = 'Nenhum planejamento ativo. Crie um em Planejamentos.';
     return;
   }
   const metas = await api(`/api/metas?planejamento=${id}&situacao=hoje`);
@@ -555,16 +635,16 @@ function renderSessaoAtiva() {
   }
   el.classList.remove('oculto');
   el.innerHTML = `
-    <h2>Estudando agora: ${esc(nomePlano(ativo.planejamento))}</h2>
+    <h2>${icone('livro')} Estudando agora: ${esc(nomePlano(ativo.planejamento))}</h2>
     <div class="relogio" id="relogio">${relogio(ativo.segundosDecorridos)}</div>
     <p class="dica" id="restante"></p>
-    <button class="primario" id="btn-finalizar">■ Finalizar</button>`;
+    <div class="acoes"><button class="primario" id="btn-finalizar">${icone('stop')} Finalizar</button></div>`;
   $('#btn-finalizar').addEventListener('click', finalizarSessao);
   const atualizar = () => {
     const passou = (Date.now() - ativoRecebidoEm) / 1000;
     const restante = ativo.segundosParaLimite - passou;
     $('#relogio').textContent = relogio(ativo.segundosDecorridos + Math.min(passou, ativo.segundosParaLimite));
-    $('#restante').textContent = `Limite diário em ${relogio(restante)} — a sessão será finalizada automaticamente.`;
+    $('#restante').textContent = `Limite diário em ${relogio(restante)}. A sessão será finalizada automaticamente.`;
     if (restante <= 0) {
       clearInterval(tick);
       setTimeout(() => {
@@ -592,11 +672,10 @@ async function finalizarSessao() {
   try {
     const r = await api(`/api/registros/${ativo._id}/finalizar`, { method: 'POST' });
     avisar(`Registro finalizado: ${relogio(r.segundos)} contabilizados`);
-    await carregarEstudar();
   } catch (err) {
     avisar(err.message, 'erro');
-    await carregarEstudar();
   }
+  await carregarEstudar();
 }
 
 // ------------------------------------------------------------ início
