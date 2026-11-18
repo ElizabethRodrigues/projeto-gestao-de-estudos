@@ -226,6 +226,17 @@ button.perigo { color: var(--bad); }
 button.mini { padding: 4px 9px; font-size: .84rem; }
 .icone-btn { padding: 8px; }
 .acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+.acoes-linha { margin-top: 8px; }
+button.destaque { color: var(--primary); border-color: var(--primary); background: var(--primary-soft); font-weight: 600; }
+button.destaque:hover { filter: brightness(1.05); }
+button.destaque svg { width: 15px; height: 15px; }
+.rodape-cartao { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; }
+.aviso-replano {
+  display: flex; gap: 10px; align-items: flex-start;
+  margin: -4px 0 14px; padding: 10px 12px; border-radius: 10px;
+  background: var(--primary-soft); color: var(--text); font-size: .9rem;
+}
+.aviso-replano svg { color: var(--primary); margin-top: 2px; }
 .filtro { margin: 0 0 12px; flex-direction: row; align-items: center; gap: 8px; }
 
 .tabela-wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }

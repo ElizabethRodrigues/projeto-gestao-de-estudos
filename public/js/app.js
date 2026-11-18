@@ -286,12 +286,17 @@ async function carregarPlanejamentos() {
   const lista = planosCache.filter((p) => mostrarSubst || p.status === 'ativo');
   tabela(
     $('#tab-planos'),
-    ['Disciplina / curso', 'Periodicidade', 'Horas e dias', 'Período', 'Status', ''],
+    ['Disciplina / curso', 'Periodicidade', 'Horas e dias', 'Período', 'Status'],
     lista.map(
       (p) => `<tr>
         <td><b>${esc(nomeAlvo(p))}</b>${p.disciplina ? `<br><small class="dica">${esc(p.curso?.nome)}</small>` : ''}${
           p.observacao ? `<br><small class="dica">${esc(p.observacao)}</small>` : ''
-        }</td>
+        }
+          <div class="acoes acoes-linha">
+            ${p.status === 'ativo' ? `<button class="mini destaque" data-replanejar="${p._id}">${icone('refazer')} Refazer planejamento</button>` : ''}
+            <button class="mini perigo" data-excluir-plano="${p._id}">Excluir</button>
+          </div>
+        </td>
         <td>${PERIODICIDADE[p.periodicidade] || esc(p.periodicidade)}${
           p.duracao
             ? ` · ${p.duracao} ${p.periodicidade === 'semanal' ? (p.duracao > 1 ? 'semanas' : 'semana') : p.duracao > 1 ? 'meses' : 'mês'}`
@@ -299,11 +304,7 @@ async function carregarPlanejamentos() {
         }</td>
         <td>${horas(p.horasPorDia)}/dia<br><small class="dica">${(p.diasSemana || []).map((d) => DIAS_SEMANA[d]).join(', ') || '—'}</small></td>
         <td>${dataBR(p.dataInicio)} a ${dataBR(p.dataFim)}</td>
-        <td>${selo(p.status)}</td>
-        <td class="acoes">
-          ${p.status === 'ativo' ? `<button class="mini" data-replanejar="${p._id}">Refazer</button>` : ''}
-          <button class="mini perigo" data-excluir-plano="${p._id}">Excluir</button>
-        </td></tr>`
+        <td>${selo(p.status)}</td></tr>`
     ),
     'Nenhum planejamento'
   );
@@ -371,6 +372,7 @@ function sairReplanejamento() {
   $('#titulo-form-plano').textContent = 'Novo planejamento';
   $('#btn-salvar-plano').textContent = 'Criar planejamento';
   $('#btn-cancelar-replano').classList.add('oculto');
+  $('#aviso-replano').classList.add('oculto');
   renderDiasSemana();
   atualizarResumoPlano();
 }
@@ -407,29 +409,7 @@ $('#form-plano').addEventListener('submit', async (e) => {
 });
 
 $('#tab-planos').addEventListener('click', async (e) => {
-  const replanejar = e.target.dataset.replanejar;
-  const excluir = e.target.dataset.excluirPlano;
-  if (replanejar) {
-    const p = planosCache.find((x) => x._id === replanejar);
-    const f = $('#form-plano');
-    f.replanejarId.value = p._id;
-    $('#sel-plano-curso').value = p.curso._id;
-    atualizarDisciplinasPlano();
-    $('#sel-plano-disciplina').value = p.disciplina?._id || '';
-    $('#sel-plano-curso').disabled = true;
-    $('#sel-plano-disciplina').disabled = true;
-    f.periodicidade.value = p.periodicidade;
-    f.duracao.value = p.duracao;
-    f.horasPorDia.value = p.horasPorDia;
-    f.dataInicio.value = hojeKey();
-    f.observacao.value = p.observacao || '';
-    renderDiasSemana(p.diasSemana?.length ? p.diasSemana : undefined);
-    atualizarResumoPlano();
-    $('#titulo-form-plano').textContent = `Refazer planejamento: ${nomeAlvo(p)}`;
-    $('#btn-salvar-plano').textContent = 'Salvar novo planejamento';
-    $('#btn-cancelar-replano').classList.remove('oculto');
-    f.scrollIntoView({ behavior: 'smooth' });
-  }
+  const excluir = e.target.closest('[data-excluir-plano]')?.dataset.excluirPlano;
   if (excluir && confirm('Excluir este planejamento, suas metas e registros?')) {
     try {
       await api(`/api/planejamentos/${excluir}`, { method: 'DELETE' });
@@ -441,6 +421,42 @@ $('#tab-planos').addEventListener('click', async (e) => {
   }
 });
 $('#chk-substituidos').addEventListener('change', carregarPlanejamentos);
+
+/**
+ * Regra 8: refazer um planejamento. Abre o formulário já preenchido com os dados do
+ * planejamento escolhido; o usuário ajusta o que quiser e salva. O planejamento antigo
+ * fica como "substituído" (com o histórico) e o novo passa a valer a partir do início informado.
+ */
+async function iniciarReplanejamento(id) {
+  // Vindo da tela inicial, abre a aba de planejamentos (que também recarrega a lista)
+  if ($('#aba-planejamentos').classList.contains('oculto')) await abrirAba('planejamentos');
+  const p = planosCache.find((x) => x._id === id);
+  if (!p) return avisar('Planejamento não encontrado', 'erro');
+  const f = $('#form-plano');
+  f.replanejarId.value = p._id;
+  $('#sel-plano-curso').value = p.curso._id;
+  atualizarDisciplinasPlano();
+  $('#sel-plano-disciplina').value = p.disciplina?._id || '';
+  $('#sel-plano-curso').disabled = true;
+  $('#sel-plano-disciplina').disabled = true;
+  f.periodicidade.value = p.periodicidade;
+  f.duracao.value = p.duracao || 1;
+  f.horasPorDia.value = p.horasPorDia || 1;
+  f.dataInicio.value = hojeKey();
+  f.observacao.value = '';
+  renderDiasSemana(p.diasSemana?.length ? p.diasSemana : undefined);
+  atualizarResumoPlano();
+  $('#titulo-form-plano').textContent = `Refazer planejamento: ${nomeAlvo(p)}`;
+  $('#aviso-replano').classList.remove('oculto');
+  $('#btn-salvar-plano').textContent = 'Salvar planejamento refeito';
+  $('#btn-cancelar-replano').classList.remove('oculto');
+  f.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  f.horasPorDia.focus({ preventScroll: true });
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-replanejar]');
+  if (b) iniciarReplanejamento(b.dataset.replanejar);
+});
 
 // ------------------------------------------------------------ início / acompanhamento
 function renderHero() {
@@ -504,6 +520,9 @@ async function carregarPainel() {
                 .join('')}</ul>`
             : ''
         }
+        <div class="rodape-cartao">
+          <button class="mini destaque" data-replanejar="${p._id}">${icone('refazer')} Refazer planejamento</button>
+        </div>
       </div>`;
     })
     .join('');

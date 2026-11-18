@@ -33,6 +33,7 @@
       <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></symbol>
       <symbol id="i-alerta" viewBox="0 0 24 24"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/></symbol>
       <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+      <symbol id="i-refazer" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></symbol>
       <symbol id="i-chama" viewBox="0 0 24 24"><path d="M12 22c4 0 7-3 7-7 0-4-3-6-4-10-2 2-3 4-3 6-1-1-2-2-2-4-2 2-5 5-5 8 0 4 3 7 7 7z"/></symbol>
     </defs>
   </svg>
@@ -137,6 +138,10 @@
         </div>
         <div class="cartao">
           <h2 id="titulo-form-plano">Novo planejamento</h2>
+          <p class="aviso-replano oculto" id="aviso-replano">
+            <svg><use href="#i-refazer"/></svg>
+            <span>Ajuste o que quiser e salve. O planejamento atual passa a <b>substituído</b> e fica no histórico (metas e registros já feitos não se perdem). O planejamento refeito vale a partir da data de início informada.</span>
+          </p>
           <form id="form-plano" class="form">
             <input type="hidden" name="replanejarId" />
             <div class="linha">
